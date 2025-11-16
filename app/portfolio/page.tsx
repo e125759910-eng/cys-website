@@ -13,8 +13,8 @@ export default function PortfolioPage(){
     <main className="min-h-screen">
       <Navbar />
       <section className="py-16 px-6 max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold mb-2 text-center text-neutral-100">CYS 作品集</h1>
-        <p className="text-center text-neutral-400 mb-10">精選案例，展現科技美學與品牌質感</p>
+        <h1 className="text-4xl font-bold mb-2 text-center text-neutral-900">CYS 作品集</h1>
+        <p className="text-center text-neutral-600 mb-10">精選案例，展現科技美學與品牌質感</p>
         <PortfolioGrid items={works} />
       </section>
       <Footer />
