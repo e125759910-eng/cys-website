@@ -12,7 +12,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-TW">
-      <body>{children}</body>
+      <body className="min-h-screen bg-neutral-950 text-neutral-200 antialiased">{children}</body>
     </html>
   )
 }
