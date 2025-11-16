@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="w1" x1="0" x2="1">
+      <stop offset="0%" stop-color="#001f3f" />
+      <stop offset="100%" stop-color="#0a84ff" />
+    </linearGradient>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#w1)" />
+  <g fill="none" stroke="#00d4ff" stroke-opacity="0.9" stroke-width="2">
+    <path d="M50 500 C 200 300, 600 350, 750 120" />
+    <path d="M0 300 C 150 100, 650 150, 800 30" />
+  </g>
+  <text x="40" y="80" fill="#AEEBFF" font-size="42" font-family="Inter">未來藍光耳機</text>
+</svg>
+
