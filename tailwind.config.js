@@ -9,18 +9,22 @@ module.exports = {
           blue: "#0a84ff",
           dark: "#0a0a0a",
           light: "#d1d5db",
-          silver: "#e5e7eb",       // 明亮銀
-          steel: "#9ca3af",        // 鋼灰
-          titanium: "#cbd5e1",     // 鈦銀藍
-          ice: "#a5f3fc",          // 冰藍高光
+          gold: "#FFD700",          // 純金色
+          goldLight: "#FFE44D",     // 亮金色
+          goldDark: "#FFA500",      // 深金色/琥珀
+          amber: "#FFC107",         // 琥珀色
+          black: "#000000",         // 純黑
+          blackLight: "#1a1a1a",    // 淺黑
         },
       },
       backgroundImage: {
-        "gradient-tech": "linear-gradient(135deg, #0a0a0a, #141414 40%, #1b1b1b)",
-        "sheen-silver": "linear-gradient(120deg, rgba(229,231,235,0.10), rgba(156,163,175,0.05) 35%, rgba(255,255,255,0.04) 50%, rgba(156,163,175,0.05) 65%, rgba(229,231,235,0.10))",
+        "gradient-tech": "linear-gradient(135deg, #000000, #0a0a0a 40%, #1a1a1a)",
+        "gradient-gold": "linear-gradient(135deg, #FFD700, #FFA500, #FF8C00)",
+        "sheen-gold": "linear-gradient(120deg, rgba(255,215,0,0.15), rgba(255,200,0,0.10) 35%, rgba(255,180,0,0.08) 50%, rgba(255,200,0,0.10) 65%, rgba(255,215,0,0.15))",
       },
       boxShadow: {
-        "silver-glow": "0 0 0 1px rgba(229,231,235,0.35), 0 8px 30px rgba(148,163,184,0.15)",
+        "gold-glow": "0 0 0 1px rgba(255,215,0,0.3), 0 8px 30px rgba(255,215,0,0.15), 0 0 40px rgba(255,200,0,0.1)",
+        "gold-glow-strong": "0 0 0 1px rgba(255,215,0,0.5), 0 12px 40px rgba(255,215,0,0.25), 0 0 60px rgba(255,200,0,0.15)",
       }
     },
   },

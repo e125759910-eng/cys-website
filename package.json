@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "generate-works": "tsx scripts/generate-works.ts",
+    "convert-nef": "tsx scripts/convert-nef-to-jpg.ts",
+    "cleanup-nef-jpg": "tsx scripts/cleanup-nef-jpg.ts"
   },
   "dependencies": {
     "react": "^18",
@@ -20,6 +23,9 @@
     "tailwindcss": "^3",
     "postcss": "^8",
     "autoprefixer": "^10"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0"
   }
 }
 

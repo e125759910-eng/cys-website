@@ -10,22 +10,27 @@ body {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
 }
 
-/* 高質感背景：深灰基底 + 徑向漸層 + 細微金屬噪點 */
+/* 黑金科技風格背景：精緻深黑基底 + 金色光效 */
 body {
-  color: #e5e7eb; /* 淺色字，深銀黑背景上可讀性高 */
-  background-color: #151a21; /* 再調亮的深銀黑基底 */
+  color: #f5f5f5; /* 淺色字，深黑背景上可讀性高 */
+  background-color: #0a0a0a; /* 深黑基底 */
   background-image:
-    /* 深銀黑金屬基底斜向漸層（再調亮一階） */
-    linear-gradient(112deg, #1a1f26 0%, #161b21 55%, #1c2228 100%),
-    /* 冷銀高光（右上，提高） */
-    radial-gradient(1150px 520px at 85% -12%, rgba(190,198,210,0.20), transparent 62%),
-    /* 冷灰柔光（左上，提高） */
-    radial-gradient(900px 420px at 12% 0%, rgba(140,150,160,0.16), transparent 62%),
-    /* 斜向金屬高光帶（更明顯） */
-    linear-gradient(145deg, rgba(255,255,255,0.00) 0%, rgba(255,255,255,0.12) 46%, rgba(255,255,255,0.00) 54%),
-    /* 底部暗角（更弱，整體更淺） */
-    radial-gradient(1100px 520px at 50% 120%, rgba(0,0,0,0.18), transparent 60%);
+    /* 深黑金屬基底斜向漸層（多層過渡） */
+    linear-gradient(112deg, #000000 0%, #0a0a0a 25%, #050505 50%, #0a0a0a 75%, #000000 100%),
+    /* 金色高光（右上，科技感光效） */
+    radial-gradient(1400px 700px at 90% -5%, rgba(255,215,0,0.15) 0%, rgba(255,200,0,0.12) 25%, rgba(255,180,0,0.08) 40%, rgba(255,160,0,0.04) 55%, transparent 70%),
+    /* 琥珀色柔光（左上，溫暖光效） */
+    radial-gradient(1100px 550px at 5% -2%, rgba(255,193,7,0.12) 0%, rgba(255,183,0,0.10) 30%, rgba(255,170,0,0.06) 45%, rgba(255,150,0,0.03) 60%, transparent 75%),
+    /* 中央金色微光（增加層次感） */
+    radial-gradient(1000px 500px at 50% 45%, rgba(255,215,0,0.08) 0%, rgba(255,200,0,0.05) 30%, rgba(255,180,0,0.02) 45%, transparent 60%),
+    /* 斜向金色高光帶（金屬質感） */
+    linear-gradient(145deg, rgba(255,215,0,0.00) 0%, rgba(255,215,0,0.06) 35%, rgba(255,200,0,0.12) 48%, rgba(255,215,0,0.06) 52%, rgba(255,215,0,0.00) 65%),
+    /* 底部暗角（保持深度） */
+    radial-gradient(1400px 700px at 50% 120%, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.25) 35%, rgba(0,0,0,0.12) 50%, rgba(0,0,0,0.05) 65%, transparent 80%);
+  background-attachment: fixed; /* 固定背景，滾動時更精緻 */
+  background-size: 100% 100%; /* 確保背景完整覆蓋 */
   position: relative;
+  min-height: 100vh; /* 確保背景完整顯示 */
 }
 
 /* 文字平滑與選取色 */
@@ -34,8 +39,8 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 ::selection {
-  background: rgba(165, 243, 252, 0.25); /* 冰藍選取高光 */
-  color: #f6f6f6;
+  background: rgba(255, 215, 0, 0.3); /* 金色選取高光 */
+  color: #ffffff;
 }
 
 /* 精緻滾動條 */
@@ -44,11 +49,11 @@ body {
   height: 10px;
 }
 *::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(229,231,235,0.55), rgba(156,163,175,0.35));
+  background: linear-gradient(180deg, rgba(255,215,0,0.6), rgba(255,180,0,0.4));
   border-radius: 999px;
-  border: 2px solid rgba(10,10,10,0.8);
+  border: 2px solid rgba(0,0,0,0.8);
 }
 *::-webkit-scrollbar-track {
-  background: rgba(255,255,255,0.03);
+  background: rgba(255,255,255,0.02);
 }
 
