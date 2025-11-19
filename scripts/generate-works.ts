@@ -4,9 +4,13 @@
  * 或添加到 package.json 的 scripts 中
  */
 
-import { readdir, stat, writeFile } from 'fs/promises';
-import { join } from 'path';
+import { readdir, stat, writeFile, unlink } from 'fs/promises';
+import { join, dirname, basename, extname } from 'path';
 import { existsSync } from 'fs';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 // 支持的图片格式（网页可显示）
 const WEB_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
@@ -49,8 +53,210 @@ async function scanDirectory(dir: string, baseDir: string, files: ImageFile[] = 
   return files;
 }
 
+// 检查 ImageMagick 是否可用
+async function checkImageMagick(): Promise<boolean> {
+  try {
+    await execAsync('magick -version');
+    return true;
+  } catch {
+    try {
+      await execAsync('convert -version');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+// 使用 ImageMagick 转换 NEF 到 JPG
+async function convertWithImageMagick(inputPath: string, outputPath: string): Promise<boolean> {
+  try {
+    // 尝试使用 magick 命令（ImageMagick 7+）
+    try {
+      await execAsync(`magick "${inputPath}" -quality 90 "${outputPath}"`);
+      return true;
+    } catch {
+      // 尝试使用 convert 命令（ImageMagick 6）
+      await execAsync(`convert "${inputPath}" -quality 90 "${outputPath}"`);
+      return true;
+    }
+  } catch (error) {
+    console.error(`转换失败 ${inputPath}:`, error);
+    return false;
+  }
+}
+
+// 递归扫描文件夹查找 NEF 文件
+async function findNefFiles(dir: string): Promise<string[]> {
+  const nefFiles: string[] = [];
+  
+  if (!existsSync(dir)) {
+    return nefFiles;
+  }
+  
+  const entries = await readdir(dir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name);
+    
+    if (entry.isDirectory()) {
+      const subFiles = await findNefFiles(fullPath);
+      nefFiles.push(...subFiles);
+    } else if (entry.isFile()) {
+      const ext = extname(entry.name).toLowerCase();
+      if (ext === '.nef') {
+        nefFiles.push(fullPath);
+      }
+    }
+  }
+
+  return nefFiles;
+}
+
+// 转换单个 NEF 文件
+async function convertNefFile(nefPath: string): Promise<boolean> {
+  const dir = dirname(nefPath);
+  const fileName = basename(nefPath);
+  const baseName = fileName.replace(/\.nef$/i, '');
+  const jpgPath = join(dir, `${baseName}.jpg`);
+
+  // 如果 JPG 已存在，删除对应的 NEF 文件
+  if (existsSync(jpgPath)) {
+    try {
+      if (existsSync(nefPath)) {
+        await unlink(nefPath);
+      }
+    } catch (error) {
+      console.error(`   ⚠️  无法删除 NEF 文件 ${fileName}:`, error);
+    }
+    return true;
+  }
+  
+  // 检查转换是否成功
+  const checkSuccess = async () => {
+    for (let i = 0; i < 10; i++) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      if (existsSync(jpgPath)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const hasImageMagick = await checkImageMagick();
+  
+  if (hasImageMagick) {
+    const result = await convertWithImageMagick(nefPath, jpgPath);
+    if (result) {
+      // 等待文件生成
+      const success = await checkSuccess();
+      if (success) {
+        // 转换成功后删除原始 NEF 文件
+        try {
+          await unlink(nefPath);
+        } catch (error) {
+          console.error(`   ⚠️  无法删除原始文件 ${fileName}:`, error);
+        }
+      }
+      return success;
+    }
+    return false;
+  } else {
+    return false;
+  }
+}
+
+// 自动转换所有 NEF 文件
+async function convertAllNefFiles(): Promise<void> {
+  const publicDir = join(process.cwd(), 'public');
+  const worksDir = join(publicDir, 'works');
+  
+  console.log('🔍 正在扫描 NEF 文件...\n');
+  
+  // 扫描 works 文件夹
+  let nefFiles: string[] = [];
+  if (existsSync(worksDir)) {
+    nefFiles = await findNefFiles(worksDir);
+  }
+  
+  // 如果 works 文件夹不存在或为空，扫描 public 下的其他文件夹
+  if (nefFiles.length === 0) {
+    const entries = await readdir(publicDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory() && entry.name !== 'works') {
+        const subDir = join(publicDir, entry.name);
+        const subFiles = await findNefFiles(subDir);
+        nefFiles.push(...subFiles);
+      }
+    }
+  }
+  
+  if (nefFiles.length === 0) {
+    console.log('✅ 未找到 NEF 文件\n');
+    return;
+  }
+  
+  console.log(`📁 找到 ${nefFiles.length} 个 NEF 文件\n`);
+  
+  const hasImageMagick = await checkImageMagick();
+  
+  if (!hasImageMagick) {
+    console.log('⚠️  未检测到 ImageMagick，跳过 NEF 转换');
+    console.log('💡 安装 ImageMagick 后，NEF 文件将自动转换');
+    console.log('   下载地址: https://imagemagick.org/script/download.php\n');
+    return;
+  }
+  
+  console.log('✅ 检测到 ImageMagick，开始转换...\n');
+  
+  let successCount = 0;
+  let skipCount = 0;
+  let failCount = 0;
+  
+  for (const nefFile of nefFiles) {
+    const relativePath = nefFile.replace(process.cwd() + '\\', '').replace(process.cwd() + '/', '');
+    const fileName = basename(nefFile);
+    const baseName = fileName.replace(/\.nef$/i, '');
+    const jpgPath = join(dirname(nefFile), `${baseName}.jpg`);
+    
+    // 如果 JPG 已存在，跳过转换但删除 NEF
+    if (existsSync(jpgPath)) {
+      try {
+        await unlink(nefFile);
+        skipCount++;
+      } catch (error) {
+        console.error(`   ⚠️  无法删除 ${fileName}`);
+      }
+      continue;
+    }
+    
+    console.log(`🔄 正在转换: ${fileName} -> ${baseName}.jpg`);
+    
+    const result = await convertNefFile(nefFile);
+    if (result) {
+      if (existsSync(jpgPath)) {
+        successCount++;
+        console.log(`   ✅ 转换成功并已删除原始文件`);
+      } else {
+        skipCount++;
+      }
+    } else {
+      failCount++;
+      console.log(`   ❌ 转换失败`);
+    }
+  }
+  
+  console.log('\n📊 转换结果:');
+  console.log(`   ✅ 成功转换并删除: ${successCount} 个`);
+  console.log(`   ⏭️  跳过（JPG已存在）: ${skipCount} 个`);
+  console.log(`   ❌ 失败: ${failCount} 个\n`);
+}
+
 async function generateWorks() {
   try {
+    // 首先自动转换所有 NEF 文件为 JPG 并删除 NEF 文件
+    await convertAllNefFiles();
+    
     // 支持两种方式：
     // 1. 扫描 public/works/ 文件夹（如果存在）
     // 2. 扫描 public/ 下的所有子文件夹（排除 logo.svg, work1.svg 等根文件）
@@ -141,16 +347,6 @@ async function generateWorks() {
           
           return { file, imgPath };
         });
-      
-      // 检查是否有 RAW 格式文件
-      const rawFiles = files.filter(file => {
-        const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-        return RAW_IMAGE_EXTENSIONS.includes(ext);
-      });
-      
-      if (rawFiles.length > 0) {
-        console.log(`⚠️  警告：${folderName} 資料夾中有 ${rawFiles.length} 個 RAW 格式文件（.NEF），這些文件無法在網頁上顯示，請轉換為 JPG/PNG 格式`);
-      }
       
       cases.push({ folder, folderName, images });
     });
