@@ -4,7 +4,7 @@
  * 或添加到 package.json 的 scripts 中
  */
 
-import { readdir, stat, writeFile, unlink } from 'fs/promises';
+import { readdir, stat, writeFile, unlink, mkdir } from 'fs/promises';
 import { join, dirname, basename, extname } from 'path';
 import { existsSync } from 'fs';
 import { exec } from 'child_process';
@@ -404,7 +404,17 @@ export const works: WorkCase[] = ${JSON.stringify(works, null, 2)};
     const outputPath = join(process.cwd(), 'data', 'works.ts');
     await writeFile(outputPath, fileContent, 'utf-8');
     
+    // 同时生成 JSON 文件到 public/data/works.json
+    const dataDir = join(process.cwd(), 'public', 'data');
+    if (!existsSync(dataDir)) {
+      await mkdir(dataDir, { recursive: true });
+    }
+    const jsonPath = join(dataDir, 'works.json');
+    const jsonContent = JSON.stringify({ works }, null, 2);
+    await writeFile(jsonPath, jsonContent, 'utf-8');
+    
     console.log(`✅ 成功生成 ${works.length} 個作品個案到 data/works.ts`);
+    console.log(`✅ 成功生成 JSON 文件到 public/data/works.json`);
     console.log('📁 作品個案列表:');
     works.forEach(work => {
       console.log(`   - ${work.title} (${work.images.length} 張照片)`);
