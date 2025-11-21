@@ -3,9 +3,20 @@ import Footer from "@/components/Footer";
 import PortfolioGrid from "@/components/PortfolioGrid";
 
 export default async function PortfolioPage() {
-  const res = await fetch("/data/works.json", {
+  // 使用绝对 URL 确保在 Vercel 上正常工作
+  const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL 
+    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+    : process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL}`
+    : process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  
+  const res = await fetch(`${baseUrl}/data/works.json`, {
     cache: "no-store",
   });
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch works: ${res.status}`);
+  }
 
   const data = await res.json();
 
