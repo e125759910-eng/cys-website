@@ -1,6 +1,7 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import PortfolioGrid from "@/components/PortfolioGrid";
+import { headers } from "next/headers";
 
 interface WorkData {
   id: number;
@@ -12,7 +13,13 @@ interface WorkData {
 export default async function PortfolioPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   
-  const res = await fetch(`/api/portfolio/${id}`, {
+  // 在服务器组件中需要使用绝对 URL
+  const headersList = await headers();
+  const host = headersList.get("host");
+  const protocol = headersList.get("x-forwarded-proto") || (process.env.NODE_ENV === "production" ? "https" : "http");
+  const baseUrl = host ? `${protocol}://${host}` : "http://localhost:3000";
+  
+  const res = await fetch(`${baseUrl}/api/portfolio/${id}`, {
     cache: "no-store",
   });
 
