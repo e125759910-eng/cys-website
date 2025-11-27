@@ -1,65 +1,53 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import PortfolioGrid from "@/components/PortfolioGrid";
-import { headers } from "next/headers";
+import { works } from "@/data/works";
+import Image from "next/image";
+import { notFound } from "next/navigation";
 
-interface WorkData {
-  id: number;
-  title: string;
-  description?: string;
-  images: string[];
+interface PortfolioDetailPageProps {
+  params: { id: string };
 }
 
-export default async function PortfolioPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  
-  // 在服务器组件中需要使用绝对 URL
-  const headersList = await headers();
-  const host = headersList.get("host");
-  const protocol = headersList.get("x-forwarded-proto") || (process.env.NODE_ENV === "production" ? "https" : "http");
-  const baseUrl = host ? `${protocol}://${host}` : "http://localhost:3000";
-  
-  const res = await fetch(`${baseUrl}/api/portfolio/${id}`, {
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    return (
-      <main className="min-h-screen flex items-center justify-center text-white">
-        作品資料讀取失敗（{res.status}）
-      </main>
-    );
-  }
-
-  const data = (await res.json()) as WorkData;
-
-  // 将 images 字符串数组转换为 PortfolioGrid 需要的格式
-  const gridItems = data.images.map((img, index) => ({
-    id: index + 1,
-    title: `${data.title} - ${index + 1}`,
-    folder: data.title,
-    coverImage: img,
-    images: [{ id: index + 1, title: `${data.title} - ${index + 1}`, img }],
-    description: data.description,
+export function generateStaticParams() {
+  return works.map((w) => ({
+    id: w.id.toString(),
   }));
+}
+
+export default function PortfolioDetailPage({ params }: PortfolioDetailPageProps) {
+  const id = Number(params.id);
+  const work = works.find((w) => w.id === id);
+
+  if (!work) return notFound();
 
   return (
     <main className="min-h-screen">
       <Navbar />
-      <section className="py-20 px-6 max-w-7xl mx-auto">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold text-[#FFD700]">
-            {data.title}
-          </h1>
-          {data.description && (
-            <p className="text-neutral-400 text-lg mt-4">
-              {data.description}
-            </p>
-          )}
-        </div>
 
-        <PortfolioGrid items={gridItems} />
+      <section className="py-16 px-6 max-w-6xl mx-auto">
+        <h1 className="text-3xl md:text-4xl font-bold mb-4 text-white">
+          {work.title}
+        </h1>
+
+        {work.description && (
+          <p className="text-neutral-400 mb-8">{work.description}</p>
+        )}
+
+        <div className="grid gap-6 md:grid-cols-2">
+          {work.images.map((img) => (
+            <div key={img.id} className="relative aspect-video rounded-2xl overflow-hidden">
+              <Image
+                src={img.img}
+                alt={img.title}
+                fill
+                className="object-cover"
+                sizes="(min-width: 768px) 50vw, 100vw"
+              />
+            </div>
+          ))}
+        </div>
       </section>
+
       <Footer />
     </main>
   );
