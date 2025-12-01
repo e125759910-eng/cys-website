@@ -1,0 +1,18 @@
+[
+  {
+    "id": "warranty-1764593046037-2i5xmrnke",
+    "name": "郭",
+    "email": "123@13",
+    "serial": "123",
+    "date": "0111-11-01",
+    "registeredAt": "2025-12-01T12:44:06.037Z"
+  },
+  {
+    "id": "warranty-1764593166749-bs3h0y7oq",
+    "name": "1",
+    "email": "123@166",
+    "serial": "123",
+    "date": "0111-11-01",
+    "registeredAt": "2025-12-01T12:46:06.749Z"
+  }
+]

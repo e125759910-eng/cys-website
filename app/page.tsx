@@ -1,56 +1,75 @@
 import Navbar from "@/components/Navbar";
-import Hero from "@/components/Hero";
 import Footer from "@/components/Footer";
+import Hero from "@/components/Hero";
 import PortfolioGrid from "@/components/PortfolioGrid";
 import { works } from "@/data/works";
 
-export default function HomePage() {
-  // 顯示前3個作品個案作為近期案例
+export default function Home() {
   const recentWorks = works.slice(0, 3);
 
   return (
     <main className="min-h-screen">
       <Navbar />
+      
+      {/* Hero 區域 */}
       <Hero />
 
-      {/* 近期案例展示區 */}
-      <section className="py-20 px-6 max-w-7xl mx-auto relative">
+      {/* 近期案例展示 */}
+      <section className="py-20 px-6 max-w-7xl mx-auto">
         <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-[#FFD700] via-[#FFE44D] to-[#FFD700]">
+          <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-[#FFD700] via-[#FFE440] to-[#FF8700] bg-clip-text text-transparent">
             近期案例展示
           </h2>
-          <div className="h-1 w-32 mx-auto rounded-full bg-gradient-to-r from-transparent via-[#FFD700] to-transparent shadow-[0_0_15px_rgba(255,215,0,0.5)]"></div>
-          <p className="text-neutral-400 mt-6 text-lg">專業包膜技術 · 精緻工藝呈現</p>
+          <p className="text-neutral-400 text-lg">
+            專業包膜技術 · 精緻工藝呈現
+          </p>
         </div>
-
         <PortfolioGrid items={recentWorks} />
       </section>
 
-      {/* 特色服務區 */}
-      <section className="py-20 px-6 max-w-7xl mx-auto relative">
+      {/* 專業服務 */}
+      <section className="py-20 px-6 max-w-7xl mx-auto">
         <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-[#FFD700] via-[#FFE44D] to-[#FFD700]">
+          <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-[#FFD700] via-[#FFE440] to-[#FF8700] bg-clip-text text-transparent">
             專業服務
           </h2>
-          <div className="h-1 w-32 mx-auto rounded-full bg-gradient-to-r from-transparent via-[#FFD700] to-transparent shadow-[0_0_15px_rgba(255,215,0,0.5)]"></div>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[
-            { title: "專業包膜", desc: "頂級膜料，精緻工藝" },
-            { title: "品質保證", desc: "CYS台灣總代理" },
-            { title: "電子保固", desc: "完整售後服務" },
-            { title: "客製化服務", desc: "滿足您的需求" }
-          ].map((item, index) => (
-            <div 
-              key={index}
-              className="p-6 rounded-xl border border-[#FFD700]/20 bg-black/30 backdrop-blur-sm hover:border-[#FFD700]/40 hover:bg-black/50 transition-all duration-300 text-center group"
-            >
-              <div className="text-3xl mb-3">✨</div>
-              <h3 className="text-lg font-semibold text-[#FFD700] mb-2">{item.title}</h3>
-              <p className="text-neutral-400 text-sm">{item.desc}</p>
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="group relative overflow-hidden rounded-xl border border-[#FFD700]/30 bg-black/40 backdrop-blur-sm hover:bg-black/60 hover:border-[#FFD700]/50 transition-all duration-300 shadow-[0_0_0_1px_rgba(255,215,0,0.1),0_8px_30px_rgba(0,0,0,0.4)] hover:shadow-gold-glow p-6 text-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#FFD700]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className="relative z-10">
+              <div className="text-5xl mb-3">✨</div>
+              <h3 className="text-lg font-semibold text-[#FFD700] mb-2">專業包膜</h3>
+              <p className="text-neutral-400 text-xs">頂級膜料，精緻工藝</p>
             </div>
-          ))}
+          </div>
+          
+          <div className="group relative overflow-hidden rounded-xl border border-[#FFD700]/30 bg-black/40 backdrop-blur-sm hover:bg-black/60 hover:border-[#FFD700]/50 transition-all duration-300 shadow-[0_0_0_1px_rgba(255,215,0,0.1),0_8px_30px_rgba(0,0,0,0.4)] hover:shadow-gold-glow p-6 text-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#FFD700]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className="relative z-10">
+              <div className="text-5xl mb-3">✨</div>
+              <h3 className="text-lg font-semibold text-[#FFD700] mb-2">品質保證</h3>
+              <p className="text-neutral-400 text-xs">CYS 台灣總代理</p>
+            </div>
+          </div>
+          
+          <div className="group relative overflow-hidden rounded-xl border border-[#FFD700]/30 bg-black/40 backdrop-blur-sm hover:bg-black/60 hover:border-[#FFD700]/50 transition-all duration-300 shadow-[0_0_0_1px_rgba(255,215,0,0.1),0_8px_30px_rgba(0,0,0,0.4)] hover:shadow-gold-glow p-6 text-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#FFD700]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className="relative z-10">
+              <div className="text-5xl mb-3">✨</div>
+              <h3 className="text-lg font-semibold text-[#FFD700] mb-2">電子保固</h3>
+              <p className="text-neutral-400 text-xs">完整售後服務</p>
+            </div>
+          </div>
+          
+          <div className="group relative overflow-hidden rounded-xl border border-[#FFD700]/30 bg-black/40 backdrop-blur-sm hover:bg-black/60 hover:border-[#FFD700]/50 transition-all duration-300 shadow-[0_0_0_1px_rgba(255,215,0,0.1),0_8px_30px_rgba(0,0,0,0.4)] hover:shadow-gold-glow p-6 text-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#FFD700]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className="relative z-10">
+              <div className="text-5xl mb-3">✨</div>
+              <h3 className="text-lg font-semibold text-[#FFD700] mb-2">客製化服務</h3>
+              <p className="text-neutral-400 text-xs">滿足您的需求</p>
+            </div>
+          </div>
         </div>
       </section>
 
