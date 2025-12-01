@@ -16,7 +16,8 @@ async function verifyAdmin() {
   // 簡單驗證（生產環境應使用更安全的方式）
   try {
     const decoded = Buffer.from(token.value, "base64").toString("utf-8");
-    return decoded.startsWith(process.env.ADMIN_USERNAME || "admin:");
+    const adminUsername = process.env.ADMIN_USERNAME || "admin";
+    return decoded.startsWith(`${adminUsername}:`);
   } catch {
     return false;
   }
@@ -42,17 +43,31 @@ export async function GET() {
     const filePath = getWarrantyFilePath();
     
     if (!existsSync(filePath)) {
+      console.log("Warranties file not found, returning empty array");
       return NextResponse.json({ warranties: [] });
     }
 
     const data = await readFile(filePath, "utf-8");
-    const warranties = JSON.parse(data);
+    let warranties = [];
     
+    try {
+      warranties = JSON.parse(data);
+      // 確保返回的是數組
+      if (!Array.isArray(warranties)) {
+        console.warn("Warranties data is not an array, converting...");
+        warranties = [];
+      }
+    } catch (parseError) {
+      console.error("Error parsing warranties JSON:", parseError);
+      warranties = [];
+    }
+    
+    console.log(`Found ${warranties.length} warranties`);
     return NextResponse.json({ warranties });
   } catch (error) {
     console.error("Error reading warranties:", error);
     return NextResponse.json(
-      { error: "讀取資料失敗" },
+      { error: "讀取資料失敗", details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
