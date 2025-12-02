@@ -1,6 +1,16 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import WarrantyQueryForm from "@/components/WarrantyQueryForm";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "保固查詢",
+  description: "CYS 保固查詢服務，輸入您的聯絡電話即可查詢保固資訊。完整售後服務，讓您安心使用。",
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
 
 export default function WarrantyPage() {
   return (

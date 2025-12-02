@@ -1,5 +1,12 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "聯絡我們",
+  description: "聯絡 CYS 車體包膜，我們樂意與您交流合作。地址：高雄市仁武區京富路161號，電話：0908229151",
+  keywords: ["CYS 聯絡", "包膜服務聯絡", "車體包膜地址", "包膜電話"],
+};
 
 export default function ContactPage(){
   return (

@@ -3,6 +3,7 @@ import Footer from "@/components/Footer";
 import { works } from "@/data/works";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 
 interface PortfolioDetailPageProps {
   params: { id: string };
@@ -12,6 +13,28 @@ export function generateStaticParams() {
   return works.map((w) => ({
     id: w.id.toString(),
   }));
+}
+
+export async function generateMetadata({ params }: PortfolioDetailPageProps): Promise<Metadata> {
+  const id = Number(params.id);
+  const work = works.find((w) => w.id === id);
+
+  if (!work) {
+    return {
+      title: "作品不存在",
+    };
+  }
+
+  return {
+    title: `${work.title} - CYS 作品集`,
+    description: work.description || `CYS 專業包膜作品：${work.title}。專業包膜技術，精緻工藝呈現。`,
+    openGraph: {
+      title: `${work.title} - CYS 作品集`,
+      description: work.description || `CYS 專業包膜作品：${work.title}。`,
+      images: work.coverImage ? [`https://cys-website-tau.vercel.app${work.coverImage}`] : [],
+      url: `https://cys-website-tau.vercel.app/portfolio/${id}`,
+    },
+  };
 }
 
 export default function PortfolioDetailPage({ params }: PortfolioDetailPageProps) {

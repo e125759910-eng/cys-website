@@ -3,12 +3,68 @@ import Footer from "@/components/Footer";
 import Hero from "@/components/Hero";
 import PortfolioGrid from "@/components/PortfolioGrid";
 import { works } from "@/data/works";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "CYS | Change Your Style - 台灣總代理專業包膜服務",
+  description: "CYS 台灣總代理，專業汽車包膜服務。提供頂級膜料、精緻工藝、完整保固服務。專業包膜技術，讓您的愛車展現獨特風格。",
+  keywords: ["CYS", "汽車包膜", "車體包膜", "台灣總代理", "包膜服務", "改色膜", "保護膜", "犀牛皮", "TPU"],
+  openGraph: {
+    title: "CYS | Change Your Style - 台灣總代理專業包膜服務",
+    description: "CYS 台灣總代理，專業汽車包膜服務。提供頂級膜料、精緻工藝、完整保固服務。",
+    url: "https://cys-website-tau.vercel.app",
+    type: "website",
+  },
+};
 
 export default function Home() {
   const recentWorks = works.slice(0, 3);
 
+  // 结构化数据（Schema.org）
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": "CYS | Change Your Style",
+    "description": "CYS 台灣總代理，專業汽車包膜服務",
+    "url": "https://cys-website-tau.vercel.app",
+    "telephone": "0908229151",
+    "email": "e125759910@gmail.com",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "京富路161號",
+      "addressLocality": "仁武區",
+      "addressRegion": "高雄市",
+      "addressCountry": "TW"
+    },
+    "geo": {
+      "@type": "GeoCoordinates",
+      "latitude": "22.7010",
+      "longitude": "120.3490"
+    },
+    "openingHoursSpecification": {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday"
+      ],
+      "opens": "09:00",
+      "closes": "18:00"
+    },
+    "priceRange": "$$",
+    "image": "https://cys-website-tau.vercel.app/logo.svg",
+    "sameAs": []
+  };
+
   return (
     <main className="min-h-screen">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <Navbar />
       
       {/* Hero 區域 */}
