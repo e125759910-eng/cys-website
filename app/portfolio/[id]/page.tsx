@@ -31,8 +31,8 @@ export async function generateMetadata({ params }: PortfolioDetailPageProps): Pr
     openGraph: {
       title: `${work.title} - CYS 作品集`,
       description: work.description || `CYS 專業包膜作品：${work.title}。`,
-      images: work.coverImage ? [`https://cys-website-tau.vercel.app${work.coverImage}`] : [],
-      url: `https://cys-website-tau.vercel.app/portfolio/${id}`,
+      images: work.coverImage ? [`https://cyswrap.com.tw${work.coverImage}`] : [],
+      url: `https://cyswrap.com.tw/portfolio/${id}`,
     },
   };
 }

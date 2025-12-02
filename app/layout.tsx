@@ -16,14 +16,14 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL('https://cys-website-tau.vercel.app'),
+  metadataBase: new URL('https://cyswrap.com.tw'),
   alternates: {
     canonical: '/',
   },
   openGraph: {
     type: 'website',
     locale: 'zh_TW',
-    url: 'https://cys-website-tau.vercel.app',
+    url: 'https://cyswrap.com.tw',
     siteName: 'CYS | Change Your Style',
     title: 'CYS | Change Your Style - 台灣總代理專業包膜服務',
     description: 'CYS 台灣總代理，專業汽車包膜服務。提供頂級膜料、精緻工藝、完整保固服務。',
@@ -67,7 +67,7 @@ export default function RootLayout({
   return (
     <html lang="zh-TW">
       <head>
-        <link rel="canonical" href="https://cys-website-tau.vercel.app" />
+        <link rel="canonical" href="https://cyswrap.com.tw" />
       </head>
       <body className="min-h-screen antialiased">{children}</body>
     </html>

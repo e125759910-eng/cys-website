@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "CYS | Change Your Style - 台灣總代理專業包膜服務",
     description: "CYS 台灣總代理，專業汽車包膜服務。提供頂級膜料、精緻工藝、完整保固服務。",
-    url: "https://cys-website-tau.vercel.app",
+    url: "https://cyswrap.com.tw",
     type: "website",
   },
 };
@@ -26,7 +26,7 @@ export default function Home() {
     "@type": "LocalBusiness",
     "name": "CYS | Change Your Style",
     "description": "CYS 台灣總代理，專業汽車包膜服務",
-    "url": "https://cys-website-tau.vercel.app",
+    "url": "https://cyswrap.com.tw",
     "telephone": "0908229151",
     "email": "e125759910@gmail.com",
     "address": {

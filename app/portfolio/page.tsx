@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "CYS 作品集 - 專業包膜案例展示",
     description: "查看 CYS 專業包膜作品集，包含全車改色、消光膜、犀牛皮保護膜等精選案例。",
-    url: "https://cys-website-tau.vercel.app/portfolio",
+    url: "https://cyswrap.com.tw/portfolio",
   },
 };
 

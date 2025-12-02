@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next'
 import { works } from '@/data/works'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://cys-website-tau.vercel.app'
+  const baseUrl = 'https://cyswrap.com.tw'
   
   // 静态页面
   const staticPages: MetadataRoute.Sitemap = [

@@ -14,13 +14,13 @@
 ### 2. 网站地图（Sitemap）
 - ✅ 自动生成 `sitemap.xml`
 - ✅ 包含所有静态页面和动态作品页面
-- ✅ 访问地址：`https://cys-website-tau.vercel.app/sitemap.xml`
+- ✅ 访问地址：`https://cyswrap.com.tw/sitemap.xml`
 
 ### 3. Robots.txt
 - ✅ 已创建 `robots.txt`
 - ✅ 允许搜索引擎爬取所有公开页面
 - ✅ 禁止爬取 `/admin/` 和 `/api/` 目录
-- ✅ 访问地址：`https://cys-website-tau.vercel.app/robots.txt`
+- ✅ 访问地址：`https://cyswrap.com.tw/robots.txt`
 
 ### 4. 结构化数据（Schema.org）
 - ✅ 首页已添加 LocalBusiness 结构化数据
@@ -40,7 +40,7 @@
 ### 步骤 2：添加网站属性
 1. 点击"添加属性"
 2. 选择"网址前缀"
-3. 输入您的网站地址：`https://cys-website-tau.vercel.app`
+3. 输入您的网站地址：`https://cyswrap.com.tw`
 4. 点击"继续"
 
 ### 步骤 3：验证网站所有权
@@ -58,12 +58,12 @@ Google 会提供几种验证方式，推荐使用：
 
 ### 步骤 4：提交网站地图
 1. 验证成功后，在左侧菜单选择"网站地图"
-2. 输入网站地图地址：`https://cys-website-tau.vercel.app/sitemap.xml`
+2. 输入网站地图地址：`https://cyswrap.com.tw/sitemap.xml`
 3. 点击"提交"
 
 ### 步骤 5：请求索引（可选）
 1. 在左侧菜单选择"网址检查"
-2. 输入首页地址：`https://cys-website-tau.vercel.app`
+2. 输入首页地址：`https://cyswrap.com.tw`
 3. 点击"请求编入索引"
 
 ## 注意事项
@@ -106,7 +106,7 @@ A:
 - 在其他网站添加反向链接
 
 **Q: 如何查看网站是否被索引？**
-A: 在 Google 搜索框中输入：`site:cys-website-tau.vercel.app`
+A: 在 Google 搜索框中输入：`site:cyswrap.com.tw`
 
 ## 后续优化建议
 
