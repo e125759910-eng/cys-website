@@ -93,19 +93,23 @@ export default function AdminDashboardPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("確定要刪除此保固資料嗎？")) return;
 
+    setError("");
     try {
       const res = await fetch(`/api/admin/warranties?id=${id}`, {
         method: "DELETE",
       });
 
-      if (res.ok) {
-        fetchWarranties();
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        await fetchWarranties();
       } else {
-        const data = await res.json();
-        setError(data.error || "刪除失敗");
+        setError(data.error || data.details || "刪除失敗");
+        console.error("Delete error:", data);
       }
     } catch (err) {
-      setError("刪除失敗");
+      console.error("Delete exception:", err);
+      setError(err instanceof Error ? err.message : "刪除失敗");
     }
   };
 
@@ -128,15 +132,25 @@ export default function AdminDashboardPage() {
 
       const data = await res.json();
 
-      if (res.ok) {
+      if (res.ok && data.success) {
         setShowForm(false);
         setEditingWarranty(null);
-        fetchWarranties();
+        setFormData({
+          customerName: "",
+          phone: "",
+          carModel: "",
+          project: "",
+          warrantyStartDate: new Date().toISOString().split("T")[0],
+          warrantyPeriod: 12,
+        });
+        await fetchWarranties();
       } else {
-        setError(data.error || "操作失敗");
+        setError(data.error || data.details || "操作失敗");
+        console.error("Submit error:", data);
       }
     } catch (err) {
-      setError("操作失敗");
+      console.error("Submit exception:", err);
+      setError(err instanceof Error ? err.message : "操作失敗");
     }
   };
 
