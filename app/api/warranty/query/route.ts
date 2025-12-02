@@ -16,18 +16,40 @@ interface WarrantyData {
   updatedAt?: string;
 }
 
+// 獲取保固資料文件路徑（統一使用 /tmp）
 function getWarrantyFilePath() {
-  // 在 Vercel 上，尝试使用 /tmp 目录（可写）
-  // 如果 /tmp 不可用，则使用项目目录
-  const isVercel = process.env.VERCEL === "1" || process.env.VERCEL_ENV;
+  return "/tmp/warranties.json";
+}
+
+// 獲取備用文件路徑（項目目錄，用於讀取現有數據）
+function getBackupFilePath() {
+  return join(process.cwd(), "data", "warranties.json");
+}
+
+// 統一的文件讀取函數
+async function readWarrantiesFile(): Promise<string | null> {
+  const primaryPath = getWarrantyFilePath();
+  const backupPath = getBackupFilePath();
   
-  if (isVercel) {
-    // Vercel 环境：使用 /tmp 目录
-    return "/tmp/warranties.json";
-  } else {
-    // 本地开发：使用项目目录
-    return join(process.cwd(), "data", "warranties.json");
+  // 優先讀取主路徑（/tmp）
+  if (existsSync(primaryPath)) {
+    try {
+      return await readFile(primaryPath, "utf-8");
+    } catch (error) {
+      console.log(`Cannot read from ${primaryPath}, trying backup`);
+    }
   }
+  
+  // 如果主路徑不存在，嘗試備用路徑（項目目錄）
+  if (existsSync(backupPath)) {
+    try {
+      return await readFile(backupPath, "utf-8");
+    } catch (error) {
+      console.log(`Cannot read from ${backupPath}`);
+    }
+  }
+  
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -41,32 +63,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // 尝试从多个位置读取文件
-    const projectPath = join(process.cwd(), "data", "warranties.json");
-    const tmpPath = "/tmp/warranties.json";
-    
-    let filePath = projectPath;
-    let data = "";
-    
-    // 优先尝试项目目录
-    if (existsSync(projectPath)) {
-      try {
-        data = await readFile(projectPath, "utf-8");
-        filePath = projectPath;
-      } catch (error) {
-        console.log("Cannot read from project path, trying /tmp");
-      }
-    }
-    
-    // 如果项目目录读取失败，尝试 /tmp
-    if (!data && existsSync(tmpPath)) {
-      try {
-        data = await readFile(tmpPath, "utf-8");
-        filePath = tmpPath;
-      } catch (error) {
-        console.log("Cannot read from /tmp either");
-      }
-    }
+    // 讀取保固資料
+    const data = await readWarrantiesFile();
     
     if (!data) {
       return NextResponse.json({ warranties: [] });

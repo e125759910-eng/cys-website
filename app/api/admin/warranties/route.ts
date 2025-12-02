@@ -35,21 +35,99 @@ async function verifyAdmin() {
   }
 }
 
-// 獲取保固資料文件路徑
+// 獲取保固資料文件路徑（統一使用 /tmp，在 Vercel 上可寫）
 function getWarrantyFilePath() {
-  // 优先使用项目目录（本地开发）
-  const projectPath = join(process.cwd(), "data", "warranties.json");
+  // 在 Vercel 上，文件系統是只讀的，必須使用 /tmp
+  // 在本地開發，也使用 /tmp 以保持一致性
+  return "/tmp/warranties.json";
+}
+
+// 獲取備用文件路徑（項目目錄，用於讀取現有數據）
+function getBackupFilePath() {
+  return join(process.cwd(), "data", "warranties.json");
+}
+
+// 統一的文件讀取函數
+async function readWarrantiesFile(): Promise<{ data: string; path: string } | null> {
+  const primaryPath = getWarrantyFilePath();
+  const backupPath = getBackupFilePath();
   
-  // 在 Vercel 上，如果项目目录不可写，使用 /tmp
-  const isVercel = process.env.VERCEL === "1" || process.env.VERCEL_ENV;
-  
-  if (isVercel) {
-    // Vercel 环境：尝试使用 /tmp 目录（可写）
-    // 注意：/tmp 在每次部署后会被清理，但可以在单次部署期间使用
-    return "/tmp/warranties.json";
+  // 優先讀取主路徑（/tmp）
+  if (existsSync(primaryPath)) {
+    try {
+      const data = await readFile(primaryPath, "utf-8");
+      return { data, path: primaryPath };
+    } catch (error) {
+      console.log(`Cannot read from ${primaryPath}, trying backup`);
+    }
   }
   
-  return projectPath;
+  // 如果主路徑不存在，嘗試備用路徑（項目目錄）
+  if (existsSync(backupPath)) {
+    try {
+      const data = await readFile(backupPath, "utf-8");
+      return { data, path: backupPath };
+    } catch (error) {
+      console.log(`Cannot read from ${backupPath}`);
+    }
+  }
+  
+  return null;
+}
+
+// 統一的文件寫入函數
+async function writeWarrantiesFile(content: string): Promise<void> {
+  const filePath = getWarrantyFilePath();
+  
+  // 如果 /tmp 文件不存在，但備用文件存在，先合併數據
+  if (!existsSync(filePath)) {
+    const backupPath = getBackupFilePath();
+    if (existsSync(backupPath)) {
+      try {
+        const backupData = await readFile(backupPath, "utf-8");
+        const backupWarranties = JSON.parse(backupData);
+        const newWarranties = JSON.parse(content);
+        
+        // 合併數據（避免重複）
+        const merged = [...backupWarranties];
+        const newIds = new Set(newWarranties.map((w: WarrantyData) => w.id));
+        merged.forEach((w: WarrantyData) => {
+          if (!newIds.has(w.id)) {
+            newWarranties.push(w);
+          }
+        });
+        
+        content = JSON.stringify(newWarranties, null, 2);
+        console.log(`Merged data from backup file. Total: ${newWarranties.length}`);
+      } catch (error) {
+        console.log("Could not merge backup data, using new data only");
+      }
+    }
+  }
+  
+  try {
+    await writeFile(filePath, content, "utf-8");
+    console.log(`Successfully wrote to ${filePath}`);
+  } catch (error: any) {
+    console.error(`Error writing to ${filePath}:`, error);
+    // 如果 /tmp 寫入失敗，嘗試項目目錄（僅本地開發）
+    if (error.code === "EACCES" || error.code === "EROFS" || error.code === "ENOENT") {
+      const backupPath = getBackupFilePath();
+      const backupDir = join(process.cwd(), "data");
+      try {
+        if (!existsSync(backupDir)) {
+          await mkdir(backupDir, { recursive: true });
+        }
+        await writeFile(backupPath, content, "utf-8");
+        console.log(`Successfully wrote to backup path ${backupPath}`);
+      } catch (backupError) {
+        console.error(`Error writing to backup path:`, backupError);
+        throw new Error(`無法寫入文件: ${error.message}`);
+      }
+    } else {
+      throw error;
+    }
+  }
 }
 
 // 計算保固結束日期
@@ -72,40 +150,15 @@ export async function GET() {
   }
 
   try {
-    // 尝试从多个位置读取文件
-    const projectPath = join(process.cwd(), "data", "warranties.json");
-    const tmpPath = "/tmp/warranties.json";
+    const fileResult = await readWarrantiesFile();
     
-    let filePath = projectPath;
-    let data = "";
-    
-    // 优先尝试项目目录
-    if (existsSync(projectPath)) {
-      try {
-        data = await readFile(projectPath, "utf-8");
-        filePath = projectPath;
-      } catch (error) {
-        console.log("Cannot read from project path, trying /tmp");
-      }
-    }
-    
-    // 如果项目目录读取失败，尝试 /tmp
-    if (!data && existsSync(tmpPath)) {
-      try {
-        data = await readFile(tmpPath, "utf-8");
-        filePath = tmpPath;
-      } catch (error) {
-        console.log("Cannot read from /tmp either");
-      }
-    }
-    
-    if (!data) {
+    if (!fileResult) {
       return NextResponse.json({ warranties: [] });
     }
 
     let warranties = [];
     try {
-      warranties = JSON.parse(data);
+      warranties = JSON.parse(fileResult.data);
       if (!Array.isArray(warranties)) {
         warranties = [];
       }
@@ -114,7 +167,7 @@ export async function GET() {
       warranties = [];
     }
     
-    console.log(`Loaded ${warranties.length} warranties from ${filePath}`);
+    console.log(`Loaded ${warranties.length} warranties from ${fileResult.path}`);
     return NextResponse.json({ warranties });
   } catch (error) {
     console.error("Error reading warranties:", error);
@@ -147,29 +200,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const filePath = getWarrantyFilePath();
-    const isVercel = process.env.VERCEL === "1" || process.env.VERCEL_ENV;
-    
-    // 在 Vercel 上不需要创建目录（/tmp 已存在）
-    // 在本地开发环境才需要创建目录
-    if (!isVercel) {
-      const dataDir = join(process.cwd(), "data");
-      if (!existsSync(dataDir)) {
-        await mkdir(dataDir, { recursive: true });
-      }
-    }
-
     // 讀取現有資料
     let warranties: WarrantyData[] = [];
-    if (existsSync(filePath)) {
+    const fileResult = await readWarrantiesFile();
+    
+    if (fileResult) {
       try {
-        const content = await readFile(filePath, "utf-8");
-        warranties = JSON.parse(content);
+        warranties = JSON.parse(fileResult.data);
         if (!Array.isArray(warranties)) {
           warranties = [];
         }
       } catch (error) {
-        console.error("Error reading warranties:", error);
+        console.error("Error parsing warranties:", error);
         warranties = [];
       }
     }
@@ -193,27 +235,9 @@ export async function POST(request: Request) {
 
     warranties.push(newWarranty);
 
-    // 保存到文件
-    try {
-      await writeFile(filePath, JSON.stringify(warranties, null, 2), "utf-8");
-      console.log(`Successfully saved warranty to ${filePath}. Total: ${warranties.length}`);
-    } catch (writeError: any) {
-      console.error("Error writing warranty file:", writeError);
-      // 如果是权限错误，尝试使用 /tmp
-      if (writeError.code === "EACCES" || writeError.code === "EROFS") {
-        const tmpPath = "/tmp/warranties.json";
-        console.log(`Retrying with /tmp path: ${tmpPath}`);
-        try {
-          await writeFile(tmpPath, JSON.stringify(warranties, null, 2), "utf-8");
-          console.log(`Successfully saved warranty to ${tmpPath}`);
-        } catch (tmpError) {
-          console.error("Error writing to /tmp:", tmpError);
-          throw tmpError;
-        }
-      } else {
-        throw writeError;
-      }
-    }
+    // 保存到文件（使用統一的寫入函數）
+    await writeWarrantiesFile(JSON.stringify(warranties, null, 2));
+    console.log(`Successfully saved warranty. Total: ${warranties.length}`);
 
     return NextResponse.json({ 
       success: true, 
@@ -254,41 +278,17 @@ export async function PUT(request: Request) {
       );
     }
 
-    // 尝试从多个位置读取文件
-    const projectPath = join(process.cwd(), "data", "warranties.json");
-    const tmpPath = "/tmp/warranties.json";
+    // 讀取現有資料
+    const fileResult = await readWarrantiesFile();
     
-    let filePath = projectPath;
-    let content = "";
-    
-    // 优先尝试项目目录
-    if (existsSync(projectPath)) {
-      try {
-        content = await readFile(projectPath, "utf-8");
-        filePath = projectPath;
-      } catch (error) {
-        console.log("Cannot read from project path, trying /tmp");
-      }
-    }
-    
-    // 如果项目目录读取失败，尝试 /tmp
-    if (!content && existsSync(tmpPath)) {
-      try {
-        content = await readFile(tmpPath, "utf-8");
-        filePath = tmpPath;
-      } catch (error) {
-        console.log("Cannot read from /tmp either");
-      }
-    }
-    
-    if (!content) {
+    if (!fileResult) {
       return NextResponse.json(
         { error: "找不到保固資料" },
         { status: 404 }
       );
     }
 
-    let warranties: WarrantyData[] = JSON.parse(content);
+    let warranties: WarrantyData[] = JSON.parse(fileResult.data);
 
     const index = warranties.findIndex((w) => w.id === data.id);
     
@@ -315,27 +315,9 @@ export async function PUT(request: Request) {
 
     warranties[index] = updatedWarranty;
 
-    // 保存到文件
-    try {
-      await writeFile(filePath, JSON.stringify(warranties, null, 2), "utf-8");
-      console.log(`Successfully updated warranty in ${filePath}`);
-    } catch (writeError: any) {
-      console.error("Error writing warranty file:", writeError);
-      // 如果是权限错误，尝试使用 /tmp
-      if (writeError.code === "EACCES" || writeError.code === "EROFS") {
-        const tmpPath = "/tmp/warranties.json";
-        console.log(`Retrying with /tmp path: ${tmpPath}`);
-        try {
-          await writeFile(tmpPath, JSON.stringify(warranties, null, 2), "utf-8");
-          console.log(`Successfully updated warranty to ${tmpPath}`);
-        } catch (tmpError) {
-          console.error("Error writing to /tmp:", tmpError);
-          throw tmpError;
-        }
-      } else {
-        throw writeError;
-      }
-    }
+    // 保存到文件（使用統一的寫入函數）
+    await writeWarrantiesFile(JSON.stringify(warranties, null, 2));
+    console.log(`Successfully updated warranty`);
 
     return NextResponse.json({ 
       success: true, 
@@ -372,42 +354,17 @@ export async function DELETE(request: Request) {
       );
     }
 
-    // 尝试从多个位置读取文件
-    const projectPath = join(process.cwd(), "data", "warranties.json");
-    const tmpPath = "/tmp/warranties.json";
+    // 讀取現有資料
+    const fileResult = await readWarrantiesFile();
     
-    let filePath = projectPath;
-    let content = "";
-    
-    // 优先尝试项目目录
-    if (existsSync(projectPath)) {
-      try {
-        content = await readFile(projectPath, "utf-8");
-        filePath = projectPath;
-      } catch (error) {
-        console.log("Cannot read from project path, trying /tmp");
-      }
-    }
-    
-    // 如果项目目录读取失败，尝试 /tmp
-    if (!content && existsSync(tmpPath)) {
-      try {
-        content = await readFile(tmpPath, "utf-8");
-        filePath = tmpPath;
-      } catch (error) {
-        console.log("Cannot read from /tmp either");
-      }
-    }
-    
-    if (!content) {
+    if (!fileResult) {
       return NextResponse.json(
         { error: "找不到保固資料" },
         { status: 404 }
       );
     }
 
-    let warranties: WarrantyData[] = JSON.parse(content);
-
+    let warranties: WarrantyData[] = JSON.parse(fileResult.data);
     const filtered = warranties.filter((w) => w.id !== id);
 
     if (filtered.length === warranties.length) {
@@ -417,27 +374,9 @@ export async function DELETE(request: Request) {
       );
     }
 
-    // 保存到文件
-    try {
-      await writeFile(filePath, JSON.stringify(filtered, null, 2), "utf-8");
-      console.log(`Successfully deleted warranty from ${filePath}. Remaining: ${filtered.length}`);
-    } catch (writeError: any) {
-      console.error("Error writing warranty file:", writeError);
-      // 如果是权限错误，尝试使用 /tmp
-      if (writeError.code === "EACCES" || writeError.code === "EROFS") {
-        const tmpPath = "/tmp/warranties.json";
-        console.log(`Retrying with /tmp path: ${tmpPath}`);
-        try {
-          await writeFile(tmpPath, JSON.stringify(filtered, null, 2), "utf-8");
-          console.log(`Successfully deleted warranty to ${tmpPath}`);
-        } catch (tmpError) {
-          console.error("Error writing to /tmp:", tmpError);
-          throw tmpError;
-        }
-      } else {
-        throw writeError;
-      }
-    }
+    // 保存到文件（使用統一的寫入函數）
+    await writeWarrantiesFile(JSON.stringify(filtered, null, 2));
+    console.log(`Successfully deleted warranty. Remaining: ${filtered.length}`);
 
     return NextResponse.json({ success: true });
   } catch (error) {
