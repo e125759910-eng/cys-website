@@ -64,7 +64,7 @@ export default function Hero(){
             hover:scale-105
           "
         >
-          登記保固
+          保固查詢
         </Link>
       </motion.div>
     </section>

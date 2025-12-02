@@ -1,18 +1,24 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import WarrantyForm from "@/components/WarrantyForm";
+import WarrantyQueryForm from "@/components/WarrantyQueryForm";
 
-export default function WarrantyPage(){
+export default function WarrantyPage() {
   return (
     <main className="min-h-screen">
       <Navbar />
-      <section className="py-16 px-6 max-w-md mx-auto">
-        <h1 className="text-3xl font-bold mb-2 text-center text-neutral-100">電子保固登記</h1>
-        <p className="text-center text-neutral-400 mb-6">為你的產品啟用保固服務</p>
-        <WarrantyForm />
+      <section className="py-16 px-6 max-w-4xl mx-auto">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-[#FFD700] via-[#FFE440] to-[#FF8700] bg-clip-text text-transparent">
+            保固查詢
+          </h1>
+          <p className="text-neutral-400 text-lg">
+            輸入您的聯絡電話，即可查詢保固資訊
+          </p>
+        </div>
+        <WarrantyQueryForm />
       </section>
       <Footer />
     </main>
-  )
+  );
 }
 

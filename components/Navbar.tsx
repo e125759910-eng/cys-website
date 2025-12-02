@@ -62,7 +62,7 @@ export default function Navbar() {
                 : "text-neutral-300 hover:text-[#FFD700]"
             }`}
           >
-            電子保固
+            保固查詢
             {pathname === "/warranty" && (
               <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#FFD700] to-transparent"></span>
             )}

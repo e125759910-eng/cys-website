@@ -1,18 +1,38 @@
 [
   {
-    "id": "warranty-1764593046037-2i5xmrnke",
-    "name": "郭",
-    "email": "123@13",
-    "serial": "123",
-    "date": "0111-11-01",
-    "registeredAt": "2025-12-01T12:44:06.037Z"
+    "id": "warranty-1764674423625-fj1k53d7x",
+    "customerName": "111",
+    "phone": "0988929720",
+    "carModel": "BMW 120",
+    "project": "全車消光犀牛皮",
+    "warrantyStartDate": "2025-12-02",
+    "warrantyEndDate": "2026-12-02T00:00:00.000Z",
+    "warrantyPeriod": 12,
+    "createdAt": "2025-12-02T11:20:23.625Z",
+    "updatedAt": "2025-12-02T11:20:23.625Z"
   },
   {
-    "id": "warranty-1764593166749-bs3h0y7oq",
-    "name": "1",
-    "email": "123@166",
-    "serial": "123",
-    "date": "0111-11-01",
-    "registeredAt": "2025-12-01T12:46:06.749Z"
+    "id": "warranty-1764674438438-qzrtr28wt",
+    "customerName": "222",
+    "phone": "0988939720",
+    "carModel": "111",
+    "project": "222",
+    "warrantyStartDate": "2025-12-02",
+    "warrantyEndDate": "2026-12-02T00:00:00.000Z",
+    "warrantyPeriod": 12,
+    "createdAt": "2025-12-02T11:20:38.438Z",
+    "updatedAt": "2025-12-02T11:20:38.438Z"
+  },
+  {
+    "id": "warranty-1764674498157-rvjusr7y2",
+    "customerName": "111",
+    "phone": "0988929720",
+    "carModel": "333",
+    "project": "33333",
+    "warrantyStartDate": "2025-12-02",
+    "warrantyEndDate": "2026-12-02T00:00:00.000Z",
+    "warrantyPeriod": 12,
+    "createdAt": "2025-12-02T11:21:38.157Z",
+    "updatedAt": "2025-12-02T11:21:38.157Z"
   }
 ]

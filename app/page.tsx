@@ -57,7 +57,7 @@ export default function Home() {
             <div className="absolute inset-0 bg-gradient-to-br from-[#FFD700]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             <div className="relative z-10">
               <div className="text-5xl mb-3">✨</div>
-              <h3 className="text-lg font-semibold text-[#FFD700] mb-2">電子保固</h3>
+              <h3 className="text-lg font-semibold text-[#FFD700] mb-2">保固查詢</h3>
               <p className="text-neutral-400 text-xs">完整售後服務</p>
             </div>
           </div>
