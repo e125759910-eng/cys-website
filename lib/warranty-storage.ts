@@ -4,15 +4,24 @@ import { existsSync } from "fs";
 
 // 獲取 KV 客戶端（動態初始化）
 async function getKVClient(): Promise<any | null> {
-  // 在本地開發環境中，如果沒有配置 KV，直接返回 null
-  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+  // 檢查多種可能的環境變量名稱（Vercel 可能使用不同的變量名）
+  const hasKVConfig = !!(
+    (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) ||
+    (process.env.KV_REDIS_URL) ||
+    (process.env.REDIS_URL)
+  );
+
+  if (!hasKVConfig) {
     console.log("KV environment variables not set, will use file system storage");
     return null;
   }
 
   try {
-    // @vercel/kv 會自動從環境變量讀取 KV_REST_API_URL 和 KV_REST_API_TOKEN
-    // 使用動態導入避免在構建時出錯
+    // @vercel/kv 會自動從環境變量讀取
+    // 支持多種環境變量名稱：
+    // - KV_REST_API_URL + KV_REST_API_TOKEN (舊格式)
+    // - KV_REDIS_URL (Vercel 自動提供的格式)
+    // - REDIS_URL (通用格式)
     const kvModule = await import("@vercel/kv");
     const kv = kvModule.kv;
     
@@ -54,10 +63,15 @@ const FILE_PATH = join(process.cwd(), "data", "warranties.json");
 
 /**
  * 判斷是否使用 Vercel KV 存儲
+ * 支持多種環境變量格式
  */
 function shouldUseKV(): boolean {
-  return process.env.KV_REST_API_URL !== undefined &&
-         process.env.KV_REST_API_TOKEN !== undefined;
+  // 支持多種環境變量格式
+  return !!(
+    (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) ||
+    process.env.KV_REDIS_URL ||
+    process.env.REDIS_URL
+  );
 }
 
 /**

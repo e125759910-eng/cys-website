@@ -33,11 +33,20 @@ export async function GET() {
 
   const storageConfig = checkStorageConfiguration();
   
+  // 檢查多種可能的 KV 環境變量
+  const hasKVRestAPI = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+  const hasKVRedisURL = !!process.env.KV_REDIS_URL;
+  const hasRedisURL = !!process.env.REDIS_URL;
+  const kvConfigured = hasKVRestAPI || hasKVRedisURL || hasRedisURL;
+
   const diagnostics = {
     storageType: getStorageType(),
-    kvConfigured: !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN),
-    kvUrlSet: !!process.env.KV_REST_API_URL,
+    kvConfigured: kvConfigured,
+    kvUrlSet: !!process.env.KV_REST_API_URL || !!process.env.KV_REDIS_URL || !!process.env.REDIS_URL,
     kvTokenSet: !!process.env.KV_REST_API_TOKEN,
+    kvRestAPIConfigured: hasKVRestAPI,
+    kvRedisURLConfigured: hasKVRedisURL,
+    redisURLConfigured: hasRedisURL,
     adminUsernameSet: !!process.env.ADMIN_USERNAME,
     adminPasswordSet: !!process.env.ADMIN_PASSWORD,
     isVercel: storageConfig.isVercel,
