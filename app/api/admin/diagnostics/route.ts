@@ -49,6 +49,20 @@ export async function GET() {
     timestamp: new Date().toISOString(),
   };
 
+  // 如果未配置 KV，提供详细的配置指导
+  if (storageConfig.needsKV) {
+    return NextResponse.json({ 
+      diagnostics,
+      configurationGuide: {
+        step1: "在 Vercel Dashboard 中创建 KV 数据库",
+        step2: "在项目设置中添加环境变量：KV_REST_API_URL 和 KV_REST_API_TOKEN",
+        step3: "确保环境变量应用于 Production 环境",
+        step4: "重新部署项目",
+        detailedGuide: "请查看项目中的 '配置Vercel-KV.md' 文件获取详细步骤"
+      }
+    });
+  }
+
   return NextResponse.json({ diagnostics });
 }
 

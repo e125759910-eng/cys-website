@@ -83,13 +83,22 @@ export default function AdminDashboardPage() {
         if (diag.needsKV) {
           message += `⚠️ 警告：\n`;
           message += `在 Vercel 環境中必須配置 KV 存儲！\n\n`;
-          message += `請按照以下步驟配置：\n`;
-          message += `1. 在 Vercel Dashboard 創建 KV 數據庫\n`;
-          message += `2. 在項目設置中添加環境變量：\n`;
-          message += `   - KV_REST_API_URL\n`;
-          message += `   - KV_REST_API_TOKEN\n`;
-          message += `3. 重新部署項目\n\n`;
-          message += `詳細說明請查看：KV配置检查指南.md`;
+          message += `📋 快速配置步驟（5分鐘）：\n\n`;
+          message += `1️⃣ 創建 KV 數據庫：\n`;
+          message += `   → 訪問：https://vercel.com/dashboard\n`;
+          message += `   → 選擇項目 → Storage → Create Database → KV\n`;
+          message += `   → 命名：cys-warranties → Create\n\n`;
+          message += `2️⃣ 獲取連接信息：\n`;
+          message += `   → 點擊 KV 數據庫 → 複製 REST API URL 和 Token\n\n`;
+          message += `3️⃣ 設置環境變量：\n`;
+          message += `   → 項目設置 → Environment Variables\n`;
+          message += `   → 添加：KV_REST_API_URL（值：複製的 URL）\n`;
+          message += `   → 添加：KV_REST_API_TOKEN（值：複製的 Token）\n`;
+          message += `   → ⚠️ 重要：勾選 "Production" 環境！\n\n`;
+          message += `4️⃣ 重新部署：\n`;
+          message += `   → Deployments → 最新部署 → ... → Redeploy\n\n`;
+          message += `5️⃣ 驗證：點擊「系統診斷」再次檢查\n\n`;
+          message += `📖 詳細指南：查看項目中的「配置Vercel-KV.md」`;
         } else {
           message += diag.message;
         }
