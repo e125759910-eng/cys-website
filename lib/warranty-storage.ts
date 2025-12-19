@@ -188,6 +188,17 @@ export async function readWarranties(): Promise<WarrantyData[]> {
 }
 
 /**
+ * 檢查是否在 Vercel 環境
+ */
+function isVercelEnvironment(): boolean {
+  return !!(
+    process.env.VERCEL ||
+    process.env.VERCEL_ENV ||
+    process.env.NEXT_PUBLIC_VERCEL_URL
+  );
+}
+
+/**
  * 寫入所有保固資料
  * 優先使用 KV（生產環境），否則使用文件系統（本地開發）
  */
@@ -197,27 +208,50 @@ export async function writeWarranties(warranties: WarrantyData[]): Promise<void>
     throw new Error("Warranties must be an array");
   }
 
+  // 在 Vercel 環境中，必須使用 KV
+  if (isVercelEnvironment() && !shouldUseKV()) {
+    throw new Error(
+      "在 Vercel 環境中必須配置 Vercel KV。請在 Vercel Dashboard 中設置 KV_REST_API_URL 和 KV_REST_API_TOKEN 環境變量。\n\n" +
+      "設置步驟：\n" +
+      "1. 在 Vercel Dashboard 中創建 KV 數據庫\n" +
+      "2. 在項目設置中添加環境變量：\n" +
+      "   - KV_REST_API_URL\n" +
+      "   - KV_REST_API_TOKEN\n" +
+      "3. 重新部署項目"
+    );
+  }
+
   if (shouldUseKV()) {
     try {
       await writeToKV(warranties);
-      // 同時寫入文件系統作為備份（如果可能）
-      try {
-        await writeToFile(warranties);
-      } catch (fileError) {
-        // 文件寫入失敗不影響主要功能（在 Vercel 上文件系統是只讀的）
-        console.log("File backup write failed (expected in production)");
+      // 同時寫入文件系統作為備份（如果可能，僅本地開發）
+      if (!isVercelEnvironment()) {
+        try {
+          await writeToFile(warranties);
+        } catch (fileError) {
+          // 文件寫入失敗不影響主要功能
+          console.log("File backup write failed");
+        }
       }
     } catch (error: any) {
       console.error("Failed to write to KV:", error);
       const errorMessage = error?.message || String(error);
-      throw new Error(`Failed to save warranties: ${errorMessage}`);
+      throw new Error(`Failed to save warranties to KV: ${errorMessage}`);
     }
   } else {
+    // 僅在本地開發環境使用文件系統
     try {
       await writeToFile(warranties);
       console.log(`Successfully wrote ${warranties.length} warranties to file`);
     } catch (error: any) {
       console.error("Failed to write to file:", error);
+      // 如果是只讀文件系統錯誤，提供明確提示
+      if (error?.code === 'EROFS' || error?.message?.includes('read only')) {
+        throw new Error(
+          "文件系統是只讀的。在 Vercel 環境中必須使用 Vercel KV 存儲。\n\n" +
+          "請在 Vercel Dashboard 中配置 KV 環境變量並重新部署。"
+        );
+      }
       throw new Error(`Failed to save warranties to file: ${error?.message || String(error)}`);
     }
   }
@@ -228,5 +262,35 @@ export async function writeWarranties(warranties: WarrantyData[]): Promise<void>
  */
 export function getStorageType(): "kv" | "file" {
   return shouldUseKV() ? "kv" : "file";
+}
+
+/**
+ * 檢查存儲配置是否正確
+ */
+export function checkStorageConfiguration(): {
+  isConfigured: boolean;
+  isVercel: boolean;
+  needsKV: boolean;
+  message: string;
+} {
+  const isVercel = isVercelEnvironment();
+  const hasKV = shouldUseKV();
+  const needsKV = isVercel && !hasKV;
+
+  let message = "";
+  if (needsKV) {
+    message = "在 Vercel 環境中必須配置 Vercel KV。請設置 KV_REST_API_URL 和 KV_REST_API_TOKEN 環境變量。";
+  } else if (hasKV) {
+    message = "KV 存儲已正確配置。";
+  } else {
+    message = "使用文件系統存儲（僅本地開發）。";
+  }
+
+  return {
+    isConfigured: !needsKV,
+    isVercel,
+    needsKV,
+    message,
+  };
 }
 

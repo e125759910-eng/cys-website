@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getStorageType } from "@/lib/warranty-storage";
+import { getStorageType, checkStorageConfiguration } from "@/lib/warranty-storage";
 
 // 驗證管理員身份
 async function verifyAdmin() {
@@ -31,6 +31,8 @@ export async function GET() {
     );
   }
 
+  const storageConfig = checkStorageConfiguration();
+  
   const diagnostics = {
     storageType: getStorageType(),
     kvConfigured: !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN),
@@ -38,7 +40,12 @@ export async function GET() {
     kvTokenSet: !!process.env.KV_REST_API_TOKEN,
     adminUsernameSet: !!process.env.ADMIN_USERNAME,
     adminPasswordSet: !!process.env.ADMIN_PASSWORD,
+    isVercel: storageConfig.isVercel,
+    needsKV: storageConfig.needsKV,
+    isConfigured: storageConfig.isConfigured,
+    message: storageConfig.message,
     nodeEnv: process.env.NODE_ENV,
+    vercelEnv: process.env.VERCEL_ENV,
     timestamp: new Date().toISOString(),
   };
 

@@ -70,11 +70,35 @@ export default function AdminDashboardPage() {
       const res = await fetch("/api/admin/diagnostics");
       if (res.ok) {
         const data = await res.json();
-        setDiagnostics(data.diagnostics);
-        alert(`診斷信息：\n存儲類型: ${data.diagnostics.storageType}\nKV 已配置: ${data.diagnostics.kvConfigured ? '是' : '否'}\nKV URL 已設置: ${data.diagnostics.kvUrlSet ? '是' : '否'}\nKV Token 已設置: ${data.diagnostics.kvTokenSet ? '是' : '否'}`);
+        const diag = data.diagnostics;
+        setDiagnostics(diag);
+        
+        let message = `診斷信息：\n\n`;
+        message += `存儲類型: ${diag.storageType}\n`;
+        message += `KV 已配置: ${diag.kvConfigured ? '✅ 是' : '❌ 否'}\n`;
+        message += `KV URL 已設置: ${diag.kvUrlSet ? '✅ 是' : '❌ 否'}\n`;
+        message += `KV Token 已設置: ${diag.kvTokenSet ? '✅ 是' : '❌ 否'}\n`;
+        message += `環境: ${diag.isVercel ? 'Vercel' : '本地'}\n\n`;
+        
+        if (diag.needsKV) {
+          message += `⚠️ 警告：\n`;
+          message += `在 Vercel 環境中必須配置 KV 存儲！\n\n`;
+          message += `請按照以下步驟配置：\n`;
+          message += `1. 在 Vercel Dashboard 創建 KV 數據庫\n`;
+          message += `2. 在項目設置中添加環境變量：\n`;
+          message += `   - KV_REST_API_URL\n`;
+          message += `   - KV_REST_API_TOKEN\n`;
+          message += `3. 重新部署項目\n\n`;
+          message += `詳細說明請查看：KV配置检查指南.md`;
+        } else {
+          message += diag.message;
+        }
+        
+        alert(message);
       }
     } catch (err) {
       console.error("Diagnostics error:", err);
+      alert("無法獲取診斷信息，請檢查網絡連接");
     }
   };
 
