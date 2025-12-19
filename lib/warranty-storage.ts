@@ -6,6 +6,7 @@ import { existsSync } from "fs";
 async function getKVClient(): Promise<any | null> {
   // 在本地開發環境中，如果沒有配置 KV，直接返回 null
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+    console.log("KV environment variables not set, will use file system storage");
     return null;
   }
 
@@ -13,9 +14,19 @@ async function getKVClient(): Promise<any | null> {
     // @vercel/kv 會自動從環境變量讀取 KV_REST_API_URL 和 KV_REST_API_TOKEN
     // 使用動態導入避免在構建時出錯
     const kvModule = await import("@vercel/kv");
-    return kvModule.kv;
+    const kv = kvModule.kv;
+    
+    // 測試連接
+    if (kv) {
+      console.log("KV client initialized successfully");
+      return kv;
+    } else {
+      console.error("KV client is null after import");
+      return null;
+    }
   } catch (error: any) {
     // 如果模組不存在或導入失敗，使用文件系統存儲
+    console.error("Failed to import @vercel/kv:", error);
     if (error.code === 'MODULE_NOT_FOUND' || error.message?.includes('Cannot resolve')) {
       console.log("Vercel KV module not found, using file system storage");
     } else {
@@ -84,22 +95,46 @@ async function readFromKV(): Promise<WarrantyData[]> {
 async function writeToKV(warranties: WarrantyData[]): Promise<void> {
   const kvClient = await getKVClient();
   if (!kvClient) {
-    throw new Error("KV not configured - KV_REST_API_URL and KV_REST_API_TOKEN must be set");
+    const hasEnvVars = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+    if (hasEnvVars) {
+      throw new Error("KV client initialization failed - check KV configuration");
+    } else {
+      throw new Error("KV not configured - KV_REST_API_URL and KV_REST_API_TOKEN must be set in environment variables");
+    }
   }
 
   try {
     // 確保數據是有效的 JSON
     const serialized = JSON.parse(JSON.stringify(warranties));
+    
+    // 使用 set 方法寫入數據
     await kvClient.set(STORAGE_KEY, serialized);
-    console.log(`Successfully wrote ${warranties.length} warranties to KV`);
+    
+    // 驗證寫入是否成功
+    const verify = await kvClient.get(STORAGE_KEY);
+    if (!verify || !Array.isArray(verify)) {
+      throw new Error("KV write verification failed - data not saved correctly");
+    }
+    
+    console.log(`Successfully wrote ${warranties.length} warranties to KV (verified: ${verify.length})`);
   } catch (error: any) {
     console.error("Error writing to KV:", error);
     console.error("Error details:", {
       message: error?.message,
       code: error?.code,
-      stack: error?.stack
+      name: error?.name,
+      stack: error?.stack?.substring(0, 500)
     });
-    throw new Error(`KV write failed: ${error?.message || String(error)}`);
+    
+    // 提供更詳細的錯誤信息
+    let errorMsg = `KV write failed: ${error?.message || String(error)}`;
+    if (error?.code === 'ECONNREFUSED' || error?.message?.includes('connect')) {
+      errorMsg = "無法連接到 KV 服務，請檢查 KV_REST_API_URL 是否正確";
+    } else if (error?.code === '401' || error?.message?.includes('Unauthorized')) {
+      errorMsg = "KV 認證失敗，請檢查 KV_REST_API_TOKEN 是否正確";
+    }
+    
+    throw new Error(errorMsg);
   }
 }
 

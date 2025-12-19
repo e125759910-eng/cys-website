@@ -21,6 +21,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<any>(null);
   const [editingWarranty, setEditingWarranty] = useState<Warranty | null>(null);
   const [formData, setFormData] = useState({
     customerName: "",
@@ -64,6 +65,19 @@ export default function AdminDashboardPage() {
     router.push("/admin/login");
   };
 
+  const checkDiagnostics = async () => {
+    try {
+      const res = await fetch("/api/admin/diagnostics");
+      if (res.ok) {
+        const data = await res.json();
+        setDiagnostics(data.diagnostics);
+        alert(`診斷信息：\n存儲類型: ${data.diagnostics.storageType}\nKV 已配置: ${data.diagnostics.kvConfigured ? '是' : '否'}\nKV URL 已設置: ${data.diagnostics.kvUrlSet ? '是' : '否'}\nKV Token 已設置: ${data.diagnostics.kvTokenSet ? '是' : '否'}`);
+      }
+    } catch (err) {
+      console.error("Diagnostics error:", err);
+    }
+  };
+
   const handleAdd = () => {
     setEditingWarranty(null);
     setFormData({
@@ -103,8 +117,13 @@ export default function AdminDashboardPage() {
 
       if (res.ok && data.success) {
         await fetchWarranties();
+        setError(""); // 清除錯誤
       } else {
-        setError(data.error || data.details || "刪除失敗");
+        let errorMsg = data.error || "刪除失敗";
+        if (data.details) {
+          errorMsg += `\n詳細信息: ${data.details}`;
+        }
+        setError(errorMsg);
         console.error("Delete error:", data);
       }
     } catch (err) {
@@ -171,7 +190,11 @@ export default function AdminDashboardPage() {
         // 清除錯誤訊息
         setError("");
       } else {
-        const errorMsg = data.error || data.details || "操作失敗";
+        // 顯示詳細錯誤信息
+        let errorMsg = data.error || "操作失敗";
+        if (data.details) {
+          errorMsg += `\n詳細信息: ${data.details}`;
+        }
         setError(errorMsg);
         console.error("Submit error:", {
           status: res.status,
@@ -221,6 +244,13 @@ export default function AdminDashboardPage() {
               </button>
             )}
             <button
+              onClick={checkDiagnostics}
+              className="px-6 py-2 rounded-lg bg-blue-500/20 border border-blue-500/50 text-blue-400 hover:bg-blue-500/30 transition-colors text-sm"
+              title="檢查系統配置"
+            >
+              系統診斷
+            </button>
+            <button
               onClick={handleLogout}
               className="px-6 py-2 rounded-lg bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30 transition-colors"
             >
@@ -230,8 +260,15 @@ export default function AdminDashboardPage() {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400">
-            {error}
+          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
+            <div className="text-red-400 font-semibold mb-2">錯誤</div>
+            <div className="text-red-300 text-sm whitespace-pre-wrap mb-3">{error}</div>
+            <button
+              onClick={checkDiagnostics}
+              className="text-xs text-red-300 hover:text-red-200 underline"
+            >
+              檢查系統配置
+            </button>
           </div>
         )}
 

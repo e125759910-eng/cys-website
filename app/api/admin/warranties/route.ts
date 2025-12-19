@@ -154,16 +154,21 @@ export async function POST(request: Request) {
     
     // 提供更詳細的錯誤信息
     let userMessage = "新增失敗，請稍後再試";
-    if (errorMessage.includes("KV")) {
-      userMessage = "存儲服務連接失敗，請檢查 KV 配置";
+    if (errorMessage.includes("KV") || errorMessage.includes("存儲")) {
+      userMessage = "存儲服務連接失敗，請檢查 Vercel KV 配置";
     } else if (errorMessage.includes("date") || errorMessage.includes("日期")) {
       userMessage = "日期格式錯誤，請檢查輸入的日期";
+    } else if (errorMessage.includes("認證") || errorMessage.includes("Unauthorized")) {
+      userMessage = "存儲服務認證失敗，請檢查 KV_REST_API_TOKEN";
+    } else if (errorMessage.includes("連接") || errorMessage.includes("connect")) {
+      userMessage = "無法連接到存儲服務，請檢查 KV_REST_API_URL";
     }
     
+    // 在生產環境也顯示詳細錯誤（用於調試）
     return NextResponse.json(
       { 
         error: userMessage,
-        details: process.env.NODE_ENV === "development" ? errorMessage : undefined
+        details: errorMessage // 始終顯示詳細錯誤以便調試
       },
       { status: 500 }
     );
@@ -342,10 +347,21 @@ export async function DELETE(request: Request) {
     console.error("Error deleting warranty:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Error details:", errorMessage);
+    
+    // 提供更詳細的錯誤信息
+    let userMessage = "刪除失敗，請稍後再試";
+    if (errorMessage.includes("KV") || errorMessage.includes("存儲")) {
+      userMessage = "存儲服務連接失敗，請檢查 Vercel KV 配置";
+    } else if (errorMessage.includes("認證") || errorMessage.includes("Unauthorized")) {
+      userMessage = "存儲服務認證失敗，請檢查 KV_REST_API_TOKEN";
+    } else if (errorMessage.includes("連接") || errorMessage.includes("connect")) {
+      userMessage = "無法連接到存儲服務，請檢查 KV_REST_API_URL";
+    }
+    
     return NextResponse.json(
       { 
-        error: "刪除失敗，請稍後再試",
-        details: process.env.NODE_ENV === "development" ? errorMessage : undefined
+        error: userMessage,
+        details: errorMessage // 始終顯示詳細錯誤以便調試
       },
       { status: 500 }
     );
