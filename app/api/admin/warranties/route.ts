@@ -1,21 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { readFile, writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
-
-interface WarrantyData {
-  id: string;
-  customerName: string;
-  phone: string;
-  carModel: string;
-  project: string;
-  warrantyStartDate: string;
-  warrantyEndDate: string;
-  warrantyPeriod: number; // 保固期限（月）
-  createdAt?: string;
-  updatedAt?: string;
-}
+import { readWarranties, writeWarranties, type WarrantyData } from "@/lib/warranty-storage";
 
 // 驗證管理員身份
 async function verifyAdmin() {
@@ -35,106 +20,15 @@ async function verifyAdmin() {
   }
 }
 
-// 獲取保固資料文件路徑（統一使用 /tmp，在 Vercel 上可寫）
-function getWarrantyFilePath() {
-  // 在 Vercel 上，文件系統是只讀的，必須使用 /tmp
-  // 在本地開發，也使用 /tmp 以保持一致性
-  return "/tmp/warranties.json";
-}
-
-// 獲取備用文件路徑（項目目錄，用於讀取現有數據）
-function getBackupFilePath() {
-  return join(process.cwd(), "data", "warranties.json");
-}
-
-// 統一的文件讀取函數
-async function readWarrantiesFile(): Promise<{ data: string; path: string } | null> {
-  const primaryPath = getWarrantyFilePath();
-  const backupPath = getBackupFilePath();
-  
-  // 優先讀取主路徑（/tmp）
-  if (existsSync(primaryPath)) {
-    try {
-      const data = await readFile(primaryPath, "utf-8");
-      return { data, path: primaryPath };
-    } catch (error) {
-      console.log(`Cannot read from ${primaryPath}, trying backup`);
-    }
-  }
-  
-  // 如果主路徑不存在，嘗試備用路徑（項目目錄）
-  if (existsSync(backupPath)) {
-    try {
-      const data = await readFile(backupPath, "utf-8");
-      return { data, path: backupPath };
-    } catch (error) {
-      console.log(`Cannot read from ${backupPath}`);
-    }
-  }
-  
-  return null;
-}
-
-// 統一的文件寫入函數
-async function writeWarrantiesFile(content: string): Promise<void> {
-  const filePath = getWarrantyFilePath();
-  
-  // 如果 /tmp 文件不存在，但備用文件存在，先合併數據
-  if (!existsSync(filePath)) {
-    const backupPath = getBackupFilePath();
-    if (existsSync(backupPath)) {
-      try {
-        const backupData = await readFile(backupPath, "utf-8");
-        const backupWarranties = JSON.parse(backupData);
-        const newWarranties = JSON.parse(content);
-        
-        // 合併數據（避免重複）
-        const merged = [...backupWarranties];
-        const newIds = new Set(newWarranties.map((w: WarrantyData) => w.id));
-        merged.forEach((w: WarrantyData) => {
-          if (!newIds.has(w.id)) {
-            newWarranties.push(w);
-          }
-        });
-        
-        content = JSON.stringify(newWarranties, null, 2);
-        console.log(`Merged data from backup file. Total: ${newWarranties.length}`);
-      } catch (error) {
-        console.log("Could not merge backup data, using new data only");
-      }
-    }
-  }
-  
-  try {
-    await writeFile(filePath, content, "utf-8");
-    console.log(`Successfully wrote to ${filePath}`);
-  } catch (error: any) {
-    console.error(`Error writing to ${filePath}:`, error);
-    // 如果 /tmp 寫入失敗，嘗試項目目錄（僅本地開發）
-    if (error.code === "EACCES" || error.code === "EROFS" || error.code === "ENOENT") {
-      const backupPath = getBackupFilePath();
-      const backupDir = join(process.cwd(), "data");
-      try {
-        if (!existsSync(backupDir)) {
-          await mkdir(backupDir, { recursive: true });
-        }
-        await writeFile(backupPath, content, "utf-8");
-        console.log(`Successfully wrote to backup path ${backupPath}`);
-      } catch (backupError) {
-        console.error(`Error writing to backup path:`, backupError);
-        throw new Error(`無法寫入文件: ${error.message}`);
-      }
-    } else {
-      throw error;
-    }
-  }
-}
-
 // 計算保固結束日期
 function calculateWarrantyEndDate(startDate: string, periodMonths: number): string {
   const start = new Date(startDate);
+  if (isNaN(start.getTime())) {
+    throw new Error("無效的開始日期");
+  }
   const end = new Date(start);
   end.setMonth(end.getMonth() + periodMonths);
+  // 確保日期格式為 ISO 字符串
   return end.toISOString();
 }
 
@@ -150,24 +44,7 @@ export async function GET() {
   }
 
   try {
-    const fileResult = await readWarrantiesFile();
-    
-    if (!fileResult) {
-      return NextResponse.json({ warranties: [] });
-    }
-
-    let warranties = [];
-    try {
-      warranties = JSON.parse(fileResult.data);
-      if (!Array.isArray(warranties)) {
-        warranties = [];
-      }
-    } catch (parseError) {
-      console.error("Error parsing warranties JSON:", parseError);
-      warranties = [];
-    }
-    
-    console.log(`Loaded ${warranties.length} warranties from ${fileResult.path}`);
+    const warranties = await readWarranties();
     return NextResponse.json({ warranties });
   } catch (error) {
     console.error("Error reading warranties:", error);
@@ -201,32 +78,22 @@ export async function POST(request: Request) {
     }
 
     // 讀取現有資料
-    let warranties: WarrantyData[] = [];
-    const fileResult = await readWarrantiesFile();
-    
-    if (fileResult) {
-      try {
-        warranties = JSON.parse(fileResult.data);
-        if (!Array.isArray(warranties)) {
-          warranties = [];
-        }
-      } catch (error) {
-        console.error("Error parsing warranties:", error);
-        warranties = [];
-      }
-    }
+    const warranties = await readWarranties();
 
+    // 確保日期格式正確（ISO格式）
+    const startDate = new Date(data.warrantyStartDate).toISOString();
+    
     // 計算保固結束日期
-    const warrantyEndDate = calculateWarrantyEndDate(data.warrantyStartDate, data.warrantyPeriod);
+    const warrantyEndDate = calculateWarrantyEndDate(startDate, data.warrantyPeriod);
 
     // 添加新保固資料
     const newWarranty: WarrantyData = {
       id: `warranty-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      customerName: data.customerName,
-      phone: data.phone,
-      carModel: data.carModel,
-      project: data.project,
-      warrantyStartDate: data.warrantyStartDate,
+      customerName: data.customerName.trim(),
+      phone: data.phone.trim().replace(/\s+/g, ""), // 移除空格，統一格式
+      carModel: data.carModel.trim(),
+      project: data.project.trim(),
+      warrantyStartDate: startDate,
       warrantyEndDate: warrantyEndDate,
       warrantyPeriod: data.warrantyPeriod,
       createdAt: new Date().toISOString(),
@@ -235,8 +102,8 @@ export async function POST(request: Request) {
 
     warranties.push(newWarranty);
 
-    // 保存到文件（使用統一的寫入函數）
-    await writeWarrantiesFile(JSON.stringify(warranties, null, 2));
+    // 保存資料
+    await writeWarranties(warranties);
     console.log(`Successfully saved warranty. Total: ${warranties.length}`);
 
     return NextResponse.json({ 
@@ -279,16 +146,7 @@ export async function PUT(request: Request) {
     }
 
     // 讀取現有資料
-    const fileResult = await readWarrantiesFile();
-    
-    if (!fileResult) {
-      return NextResponse.json(
-        { error: "找不到保固資料" },
-        { status: 404 }
-      );
-    }
-
-    let warranties: WarrantyData[] = JSON.parse(fileResult.data);
+    const warranties = await readWarranties();
 
     const index = warranties.findIndex((w) => w.id === data.id);
     
@@ -308,15 +166,25 @@ export async function PUT(request: Request) {
 
     // 如果更新了開始日期或期限，重新計算結束日期
     if (data.warrantyStartDate || data.warrantyPeriod) {
-      const startDate = data.warrantyStartDate || updatedWarranty.warrantyStartDate;
+      const startDate = data.warrantyStartDate 
+        ? new Date(data.warrantyStartDate).toISOString() 
+        : updatedWarranty.warrantyStartDate;
       const period = data.warrantyPeriod || updatedWarranty.warrantyPeriod;
       updatedWarranty.warrantyEndDate = calculateWarrantyEndDate(startDate, period);
+      updatedWarranty.warrantyStartDate = startDate;
     }
+    
+    // 更新其他欄位
+    if (data.customerName) updatedWarranty.customerName = data.customerName.trim();
+    if (data.phone) updatedWarranty.phone = data.phone.trim().replace(/\s+/g, "");
+    if (data.carModel) updatedWarranty.carModel = data.carModel.trim();
+    if (data.project) updatedWarranty.project = data.project.trim();
+    if (data.warrantyPeriod) updatedWarranty.warrantyPeriod = data.warrantyPeriod;
 
     warranties[index] = updatedWarranty;
 
-    // 保存到文件（使用統一的寫入函數）
-    await writeWarrantiesFile(JSON.stringify(warranties, null, 2));
+    // 保存資料
+    await writeWarranties(warranties);
     console.log(`Successfully updated warranty`);
 
     return NextResponse.json({ 
@@ -355,16 +223,7 @@ export async function DELETE(request: Request) {
     }
 
     // 讀取現有資料
-    const fileResult = await readWarrantiesFile();
-    
-    if (!fileResult) {
-      return NextResponse.json(
-        { error: "找不到保固資料" },
-        { status: 404 }
-      );
-    }
-
-    let warranties: WarrantyData[] = JSON.parse(fileResult.data);
+    const warranties = await readWarranties();
     const filtered = warranties.filter((w) => w.id !== id);
 
     if (filtered.length === warranties.length) {
@@ -374,11 +233,26 @@ export async function DELETE(request: Request) {
       );
     }
 
-    // 保存到文件（使用統一的寫入函數）
-    await writeWarrantiesFile(JSON.stringify(filtered, null, 2));
-    console.log(`Successfully deleted warranty. Remaining: ${filtered.length}`);
+    // 保存資料
+    await writeWarranties(filtered);
+    console.log(`Successfully deleted warranty ${id}. Remaining: ${filtered.length}`);
 
-    return NextResponse.json({ success: true });
+    // 驗證刪除是否成功
+    const verifyWarranties = await readWarranties();
+    const stillExists = verifyWarranties.some((w) => w.id === id);
+    
+    if (stillExists) {
+      console.error(`Warning: Warranty ${id} still exists after deletion attempt`);
+      return NextResponse.json(
+        { error: "刪除失敗，資料仍存在" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ 
+      success: true,
+      message: `已成功刪除保固資料，剩餘 ${filtered.length} 筆`
+    });
   } catch (error) {
     console.error("Error deleting warranty:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);

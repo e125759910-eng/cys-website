@@ -49,24 +49,43 @@ export default function WarrantyQueryForm() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("zh-TW", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return dateString; // 如果日期无效，返回原始字符串
+      }
+      return date.toLocaleDateString("zh-TW", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    } catch (error) {
+      return dateString; // 出错时返回原始字符串
+    }
   };
 
   const getWarrantyStatus = (endDate: string) => {
-    const today = new Date();
-    const end = new Date(endDate);
-    const daysLeft = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // 重置時間為當天開始
+      const end = new Date(endDate);
+      end.setHours(0, 0, 0, 0); // 重置時間為當天開始
+      
+      if (isNaN(end.getTime())) {
+        return { text: "日期格式錯誤", color: "text-red-400" };
+      }
+      
+      const daysLeft = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-    if (daysLeft < 0) {
-      return { text: "已過期", color: "text-red-400" };
-    } else if (daysLeft <= 30) {
-      return { text: `剩餘 ${daysLeft} 天`, color: "text-yellow-400" };
-    } else {
-      return { text: `剩餘 ${daysLeft} 天`, color: "text-green-400" };
+      if (daysLeft < 0) {
+        return { text: "已過期", color: "text-red-400" };
+      } else if (daysLeft <= 30) {
+        return { text: `剩餘 ${daysLeft} 天`, color: "text-yellow-400" };
+      } else {
+        return { text: `剩餘 ${daysLeft} 天`, color: "text-green-400" };
+      }
+    } catch (error) {
+      return { text: "無法計算", color: "text-red-400" };
     }
   };
 

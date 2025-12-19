@@ -26,6 +26,10 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env
+
+# data files (包含用戶數據，不應提交到 Git)
+/data/warranties.json
 
 # vercel
 .vercel

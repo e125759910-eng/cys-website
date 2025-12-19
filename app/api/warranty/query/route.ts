@@ -1,56 +1,5 @@
 import { NextResponse } from "next/server";
-import { readFile } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
-
-interface WarrantyData {
-  id: string;
-  customerName: string;
-  phone: string;
-  carModel: string;
-  project: string;
-  warrantyStartDate: string;
-  warrantyEndDate: string;
-  warrantyPeriod: number;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-// 獲取保固資料文件路徑（統一使用 /tmp）
-function getWarrantyFilePath() {
-  return "/tmp/warranties.json";
-}
-
-// 獲取備用文件路徑（項目目錄，用於讀取現有數據）
-function getBackupFilePath() {
-  return join(process.cwd(), "data", "warranties.json");
-}
-
-// 統一的文件讀取函數
-async function readWarrantiesFile(): Promise<string | null> {
-  const primaryPath = getWarrantyFilePath();
-  const backupPath = getBackupFilePath();
-  
-  // 優先讀取主路徑（/tmp）
-  if (existsSync(primaryPath)) {
-    try {
-      return await readFile(primaryPath, "utf-8");
-    } catch (error) {
-      console.log(`Cannot read from ${primaryPath}, trying backup`);
-    }
-  }
-  
-  // 如果主路徑不存在，嘗試備用路徑（項目目錄）
-  if (existsSync(backupPath)) {
-    try {
-      return await readFile(backupPath, "utf-8");
-    } catch (error) {
-      console.log(`Cannot read from ${backupPath}`);
-    }
-  }
-  
-  return null;
-}
+import { readWarranties } from "@/lib/warranty-storage";
 
 export async function POST(request: Request) {
   try {
@@ -64,19 +13,18 @@ export async function POST(request: Request) {
     }
 
     // 讀取保固資料
-    const data = await readWarrantiesFile();
-    
-    if (!data) {
-      return NextResponse.json({ warranties: [] });
-    }
+    const allWarranties = await readWarranties();
 
-    const allWarranties: WarrantyData[] = JSON.parse(data);
-
-    // 根據電話號碼查詢（支援部分匹配）
-    const phoneStr = phone.trim().replace(/\s+/g, "");
+    // 根據電話號碼查詢（精確匹配，移除所有空格和特殊字符）
+    const phoneStr = phone.trim().replace(/\s+/g, "").replace(/[-\s()]/g, "");
     const matchingWarranties = allWarranties.filter((warranty) => {
-      const warrantyPhone = warranty.phone.trim().replace(/\s+/g, "");
-      return warrantyPhone.includes(phoneStr) || phoneStr.includes(warrantyPhone);
+      const warrantyPhone = warranty.phone.trim().replace(/\s+/g, "").replace(/[-\s()]/g, "");
+      // 精確匹配或後綴匹配（支援輸入完整號碼或部分號碼）
+      return warrantyPhone === phoneStr || 
+             warrantyPhone.endsWith(phoneStr) || 
+             phoneStr.endsWith(warrantyPhone) ||
+             warrantyPhone.includes(phoneStr) ||
+             phoneStr.includes(warrantyPhone);
     });
 
     return NextResponse.json({ warranties: matchingWarranties });
@@ -88,4 +36,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
