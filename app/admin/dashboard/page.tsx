@@ -113,6 +113,30 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleClearAll = async () => {
+    if (!confirm("⚠️ 警告：此操作將永久刪除所有保固資料，且無法復原！\n\n確定要清除所有保固資料嗎？")) return;
+
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/warranties?clearAll=true`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        await fetchWarranties();
+        alert("已成功清除所有保固資料");
+      } else {
+        setError(data.error || data.details || "清除失敗");
+        console.error("Clear all error:", data);
+      }
+    } catch (err) {
+      console.error("Clear all exception:", err);
+      setError(err instanceof Error ? err.message : "清除失敗");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -144,9 +168,16 @@ export default function AdminDashboardPage() {
           warrantyPeriod: 12,
         });
         await fetchWarranties();
+        // 清除錯誤訊息
+        setError("");
       } else {
-        setError(data.error || data.details || "操作失敗");
-        console.error("Submit error:", data);
+        const errorMsg = data.error || data.details || "操作失敗";
+        setError(errorMsg);
+        console.error("Submit error:", {
+          status: res.status,
+          statusText: res.statusText,
+          data: data
+        });
       }
     } catch (err) {
       console.error("Submit exception:", err);
@@ -180,6 +211,15 @@ export default function AdminDashboardPage() {
             >
               新增保固
             </button>
+            {warranties.length > 0 && (
+              <button
+                onClick={handleClearAll}
+                className="px-6 py-2 rounded-lg bg-orange-500/20 border border-orange-500/50 text-orange-400 hover:bg-orange-500/30 transition-colors"
+                title="清除所有保固資料"
+              >
+                清除所有記錄
+              </button>
+            )}
             <button
               onClick={handleLogout}
               className="px-6 py-2 rounded-lg bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30 transition-colors"

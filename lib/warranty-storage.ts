@@ -55,14 +55,25 @@ function shouldUseKV(): boolean {
 async function readFromKV(): Promise<WarrantyData[]> {
   const kvClient = await getKVClient();
   if (!kvClient) {
-    throw new Error("KV not configured");
+    throw new Error("KV not configured - KV_REST_API_URL and KV_REST_API_TOKEN must be set");
   }
 
   try {
     const data = await kvClient.get(STORAGE_KEY);
-    return data ? (Array.isArray(data) ? data : []) : [];
-  } catch (error) {
+    if (!data) {
+      console.log("No data found in KV, returning empty array");
+      return [];
+    }
+    const warranties = Array.isArray(data) ? data : [];
+    console.log(`Successfully read ${warranties.length} warranties from KV`);
+    return warranties;
+  } catch (error: any) {
     console.error("Error reading from KV:", error);
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code
+    });
+    // 讀取失敗時返回空數組，而不是拋出錯誤
     return [];
   }
 }
@@ -73,14 +84,22 @@ async function readFromKV(): Promise<WarrantyData[]> {
 async function writeToKV(warranties: WarrantyData[]): Promise<void> {
   const kvClient = await getKVClient();
   if (!kvClient) {
-    throw new Error("KV not configured");
+    throw new Error("KV not configured - KV_REST_API_URL and KV_REST_API_TOKEN must be set");
   }
 
   try {
-    await kvClient.set(STORAGE_KEY, warranties);
-  } catch (error) {
+    // 確保數據是有效的 JSON
+    const serialized = JSON.parse(JSON.stringify(warranties));
+    await kvClient.set(STORAGE_KEY, serialized);
+    console.log(`Successfully wrote ${warranties.length} warranties to KV`);
+  } catch (error: any) {
     console.error("Error writing to KV:", error);
-    throw error;
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack
+    });
+    throw new Error(`KV write failed: ${error?.message || String(error)}`);
   }
 }
 
@@ -138,6 +157,11 @@ export async function readWarranties(): Promise<WarrantyData[]> {
  * 優先使用 KV（生產環境），否則使用文件系統（本地開發）
  */
 export async function writeWarranties(warranties: WarrantyData[]): Promise<void> {
+  // 驗證數據格式
+  if (!Array.isArray(warranties)) {
+    throw new Error("Warranties must be an array");
+  }
+
   if (shouldUseKV()) {
     try {
       await writeToKV(warranties);
@@ -148,12 +172,19 @@ export async function writeWarranties(warranties: WarrantyData[]): Promise<void>
         // 文件寫入失敗不影響主要功能（在 Vercel 上文件系統是只讀的）
         console.log("File backup write failed (expected in production)");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to write to KV:", error);
-      throw error;
+      const errorMessage = error?.message || String(error);
+      throw new Error(`Failed to save warranties: ${errorMessage}`);
     }
   } else {
-    await writeToFile(warranties);
+    try {
+      await writeToFile(warranties);
+      console.log(`Successfully wrote ${warranties.length} warranties to file`);
+    } catch (error: any) {
+      console.error("Failed to write to file:", error);
+      throw new Error(`Failed to save warranties to file: ${error?.message || String(error)}`);
+    }
   }
 }
 

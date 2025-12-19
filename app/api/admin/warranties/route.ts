@@ -81,7 +81,22 @@ export async function POST(request: Request) {
     const warranties = await readWarranties();
 
     // 確保日期格式正確（ISO格式）
-    const startDate = new Date(data.warrantyStartDate).toISOString();
+    let startDate: string;
+    try {
+      const dateObj = new Date(data.warrantyStartDate);
+      if (isNaN(dateObj.getTime())) {
+        return NextResponse.json(
+          { error: "無效的日期格式，請使用 YYYY-MM-DD 格式" },
+          { status: 400 }
+        );
+      }
+      startDate = dateObj.toISOString();
+    } catch (dateError) {
+      return NextResponse.json(
+        { error: "日期格式錯誤，請檢查輸入的日期" },
+        { status: 400 }
+      );
+    }
     
     // 計算保固結束日期
     const warrantyEndDate = calculateWarrantyEndDate(startDate, data.warrantyPeriod);
@@ -103,20 +118,51 @@ export async function POST(request: Request) {
     warranties.push(newWarranty);
 
     // 保存資料
-    await writeWarranties(warranties);
-    console.log(`Successfully saved warranty. Total: ${warranties.length}`);
+    try {
+      await writeWarranties(warranties);
+      console.log(`Successfully saved warranty. Total: ${warranties.length}`);
+      
+      // 驗證保存是否成功
+      const verifyWarranties = await readWarranties();
+      const saved = verifyWarranties.find((w) => w.id === newWarranty.id);
+      
+      if (!saved) {
+        console.error("Warning: Warranty was not found after save");
+        return NextResponse.json(
+          { 
+            error: "新增失敗，資料未正確保存",
+            details: "請檢查存儲配置"
+          },
+          { status: 500 }
+        );
+      }
+    } catch (writeError: any) {
+      console.error("Error writing warranty:", writeError);
+      throw writeError; // 重新拋出以便外層 catch 處理
+    }
 
     return NextResponse.json({ 
       success: true, 
-      warranty: newWarranty 
+      warranty: newWarranty,
+      message: "保固資料已成功新增"
     });
   } catch (error) {
     console.error("Error saving warranty:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Error details:", errorMessage);
+    console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
+    
+    // 提供更詳細的錯誤信息
+    let userMessage = "新增失敗，請稍後再試";
+    if (errorMessage.includes("KV")) {
+      userMessage = "存儲服務連接失敗，請檢查 KV 配置";
+    } else if (errorMessage.includes("date") || errorMessage.includes("日期")) {
+      userMessage = "日期格式錯誤，請檢查輸入的日期";
+    }
+    
     return NextResponse.json(
       { 
-        error: "新增失敗，請稍後再試",
+        error: userMessage,
         details: process.env.NODE_ENV === "development" ? errorMessage : undefined
       },
       { status: 500 }
@@ -200,7 +246,7 @@ export async function PUT(request: Request) {
   }
 }
 
-// DELETE: 刪除保固資料
+// DELETE: 刪除保固資料或清除所有資料
 export async function DELETE(request: Request) {
   const isAdmin = await verifyAdmin();
   
@@ -214,6 +260,40 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
+    const clearAll = searchParams.get("clearAll") === "true";
+
+    // 如果請求清除所有資料
+    if (clearAll) {
+      try {
+        await writeWarranties([]);
+        console.log("Successfully cleared all warranties");
+        
+        // 驗證清除是否成功
+        const verifyWarranties = await readWarranties();
+        if (verifyWarranties.length > 0) {
+          console.error("Warning: Warranties still exist after clear all");
+          return NextResponse.json(
+            { error: "清除失敗，仍有資料存在" },
+            { status: 500 }
+          );
+        }
+        
+        return NextResponse.json({ 
+          success: true,
+          message: "已成功清除所有保固資料"
+        });
+      } catch (error: any) {
+        console.error("Error clearing all warranties:", error);
+        const errorMessage = error?.message || String(error);
+        return NextResponse.json(
+          { 
+            error: "清除失敗，請稍後再試",
+            details: process.env.NODE_ENV === "development" ? errorMessage : undefined
+          },
+          { status: 500 }
+        );
+      }
+    }
 
     if (!id) {
       return NextResponse.json(
@@ -234,8 +314,13 @@ export async function DELETE(request: Request) {
     }
 
     // 保存資料
-    await writeWarranties(filtered);
-    console.log(`Successfully deleted warranty ${id}. Remaining: ${filtered.length}`);
+    try {
+      await writeWarranties(filtered);
+      console.log(`Successfully deleted warranty ${id}. Remaining: ${filtered.length}`);
+    } catch (writeError: any) {
+      console.error("Error writing after deletion:", writeError);
+      throw writeError;
+    }
 
     // 驗證刪除是否成功
     const verifyWarranties = await readWarranties();
@@ -244,7 +329,7 @@ export async function DELETE(request: Request) {
     if (stillExists) {
       console.error(`Warning: Warranty ${id} still exists after deletion attempt`);
       return NextResponse.json(
-        { error: "刪除失敗，資料仍存在" },
+        { error: "刪除失敗，資料仍存在，請重試" },
         { status: 500 }
       );
     }
