@@ -2,6 +2,9 @@ import { readFile, writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 
+// 嘗試使用 redis 包作為備選方案
+let redisClient: any = null;
+
 // 獲取 KV 客戶端（動態初始化）
 async function getKVClient(): Promise<any | null> {
   // 檢查多種可能的環境變量名稱
@@ -24,15 +27,56 @@ async function getKVClient(): Promise<any | null> {
   });
 
   try {
-    // @vercel/kv 會自動從環境變量讀取
-    // 支持多種環境變量名稱：
-    // - KV_REST_API_URL + KV_REST_API_TOKEN (舊格式)
-    // - KV_REDIS_URL (Vercel 自動提供的格式)
-    // - REDIS_URL (通用格式)
+    // 優先嘗試使用 @vercel/kv（如果環境變量完整）
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      const kvModule = await import("@vercel/kv");
+      const kv = kvModule.kv;
+      if (kv) {
+        console.log("KV client initialized with KV_REST_API_URL and KV_REST_API_TOKEN");
+        return kv;
+      }
+    }
+    
+    // 如果有 KV_REDIS_URL，檢查格式並選擇合適的客戶端
+    if (process.env.KV_REDIS_URL) {
+      const redisUrl = process.env.KV_REDIS_URL;
+      console.log("Found KV_REDIS_URL, format:", redisUrl.startsWith('redis://') ? 'redis://' : 'https://');
+      
+      // 如果是 redis:// 格式，使用 redis 包
+      if (redisUrl.startsWith('redis://')) {
+        try {
+          const redisModule = await import("redis");
+          const client = redisModule.createClient({
+            url: redisUrl,
+          });
+          
+          if (!client.isOpen) {
+            await client.connect();
+          }
+          
+          console.log("Redis client initialized successfully with KV_REDIS_URL (redis://)");
+          return client;
+        } catch (redisError: any) {
+          console.error("Failed to initialize redis client:", redisError);
+          // 繼續嘗試其他方法
+        }
+      }
+      // 如果是 https:// 格式（REST API），需要轉換為 @vercel/kv 格式
+      else if (redisUrl.startsWith('https://')) {
+        // Vercel KV REST API URL，需要設置為 KV_REST_API_URL
+        // 但還需要 Token，可能需要從其他地方獲取
+        process.env.KV_REST_API_URL = redisUrl;
+        console.log("Set KV_REST_API_URL from KV_REDIS_URL");
+        
+        // 如果沒有 Token，嘗試使用 @vercel/kv（它可能會從其他環境變量獲取）
+        // 或者提示用戶需要設置 Token
+      }
+    }
+    
+    // 最後嘗試 @vercel/kv（可能環境變量會在運行時設置）
     const kvModule = await import("@vercel/kv");
     const kv = kvModule.kv;
     
-    // 測試連接
     if (kv) {
       console.log("KV client initialized successfully");
       return kv;
@@ -129,7 +173,7 @@ async function writeToKV(warranties: WarrantyData[]): Promise<void> {
     const hasKVRestAPI = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
     
     if (hasKVRedisURL || hasRedisURL || hasKVRestAPI) {
-      throw new Error("KV client initialization failed - check KV configuration and @vercel/kv package");
+      throw new Error("KV client initialization failed - check KV configuration");
     } else {
       throw new Error(
         "KV not configured. Please set one of:\n" +
@@ -144,11 +188,22 @@ async function writeToKV(warranties: WarrantyData[]): Promise<void> {
     // 確保數據是有效的 JSON
     const serialized = JSON.parse(JSON.stringify(warranties));
     
-    // 使用 set 方法寫入數據
-    await kvClient.set(STORAGE_KEY, serialized);
+    // 檢查是 redis 客戶端還是 @vercel/kv 客戶端
+    if (typeof kvClient.set === 'function') {
+      // @vercel/kv 或 redis 客戶端
+      await kvClient.set(STORAGE_KEY, serialized);
+    } else {
+      throw new Error("KV client does not support set method");
+    }
     
     // 驗證寫入是否成功
-    const verify = await kvClient.get(STORAGE_KEY);
+    let verify: any;
+    if (typeof kvClient.get === 'function') {
+      verify = await kvClient.get(STORAGE_KEY);
+    } else {
+      verify = await kvClient.get(STORAGE_KEY);
+    }
+    
     if (!verify || !Array.isArray(verify)) {
       throw new Error("KV write verification failed - data not saved correctly");
     }
@@ -166,9 +221,11 @@ async function writeToKV(warranties: WarrantyData[]): Promise<void> {
     // 提供更詳細的錯誤信息
     let errorMsg = `KV write failed: ${error?.message || String(error)}`;
     if (error?.code === 'ECONNREFUSED' || error?.message?.includes('connect')) {
-      errorMsg = "無法連接到 KV 服務，請檢查 KV_REST_API_URL 是否正確";
-    } else if (error?.code === '401' || error?.message?.includes('Unauthorized')) {
-      errorMsg = "KV 認證失敗，請檢查 KV_REST_API_TOKEN 是否正確";
+      errorMsg = "無法連接到 KV 服務，請檢查連接配置";
+    } else if (error?.code === '401' || error?.message?.includes('Unauthorized') || error?.message?.includes('TOKEN')) {
+      errorMsg = "KV 認證失敗。如果使用 KV_REDIS_URL，請確保 URL 中包含完整的認證信息";
+    } else if (error?.message?.includes('Missing')) {
+      errorMsg = "KV 配置不完整。請在 Vercel Dashboard 中檢查環境變量設置";
     }
     
     throw new Error(errorMsg);
