@@ -37,16 +37,20 @@ export async function GET() {
   const hasKVRestAPI = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
   const hasKVRedisURL = !!process.env.KV_REDIS_URL;
   const hasRedisURL = !!process.env.REDIS_URL;
+  // Vercel 使用 KV_REDIS_URL 時，URL 中已包含認證信息，不需要單獨的 Token
   const kvConfigured = hasKVRestAPI || hasKVRedisURL || hasRedisURL;
 
   const diagnostics = {
     storageType: getStorageType(),
     kvConfigured: kvConfigured,
     kvUrlSet: !!process.env.KV_REST_API_URL || !!process.env.KV_REDIS_URL || !!process.env.REDIS_URL,
-    kvTokenSet: !!process.env.KV_REST_API_TOKEN,
+    // 對於 KV_REDIS_URL 格式，不需要單獨的 Token（URL 中包含認證信息）
+    kvTokenSet: !!process.env.KV_REST_API_TOKEN || hasKVRedisURL || hasRedisURL,
     kvRestAPIConfigured: hasKVRestAPI,
     kvRedisURLConfigured: hasKVRedisURL,
     redisURLConfigured: hasRedisURL,
+    // 顯示使用的格式
+    kvFormat: hasKVRedisURL ? "KV_REDIS_URL" : hasRedisURL ? "REDIS_URL" : hasKVRestAPI ? "KV_REST_API_URL + Token" : "未配置",
     adminUsernameSet: !!process.env.ADMIN_USERNAME,
     adminPasswordSet: !!process.env.ADMIN_PASSWORD,
     isVercel: storageConfig.isVercel,

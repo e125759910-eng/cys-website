@@ -78,7 +78,16 @@ export default function AdminDashboardPage() {
         message += `KV 已配置: ${diag.kvConfigured ? '✅ 是' : '❌ 否'}\n`;
         message += `KV URL 已設置: ${diag.kvUrlSet ? '✅ 是' : '❌ 否'}\n`;
         message += `KV Token 已設置: ${diag.kvTokenSet ? '✅ 是' : '❌ 否'}\n`;
+        if (diag.kvFormat) {
+          message += `使用格式: ${diag.kvFormat}\n`;
+        }
         message += `環境: ${diag.isVercel ? 'Vercel' : '本地'}\n\n`;
+        
+        // 如果使用 KV_REDIS_URL 格式，Token 显示为否是正常的
+        if (diag.kvRedisURLConfigured && !diag.kvTokenSet) {
+          message += `ℹ️ 提示：使用 KV_REDIS_URL 格式時，URL 中已包含認證信息，\n`;
+          message += `   不需要單獨的 Token，這是正常的。\n\n`;
+        }
         
         if (diag.needsKV) {
           message += `⚠️ 警告：\n`;

@@ -4,17 +4,24 @@ import { existsSync } from "fs";
 
 // 獲取 KV 客戶端（動態初始化）
 async function getKVClient(): Promise<any | null> {
-  // 檢查多種可能的環境變量名稱（Vercel 可能使用不同的變量名）
+  // 檢查多種可能的環境變量名稱
+  // Vercel 使用 KV_REDIS_URL 時，URL 中已包含認證信息
   const hasKVConfig = !!(
-    (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) ||
-    (process.env.KV_REDIS_URL) ||
-    (process.env.REDIS_URL)
+    process.env.KV_REDIS_URL ||
+    process.env.REDIS_URL ||
+    (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)
   );
 
   if (!hasKVConfig) {
     console.log("KV environment variables not set, will use file system storage");
     return null;
   }
+  
+  console.log("KV configuration found:", {
+    hasKVRedisURL: !!process.env.KV_REDIS_URL,
+    hasRedisURL: !!process.env.REDIS_URL,
+    hasKVRestAPI: !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)
+  });
 
   try {
     // @vercel/kv 會自動從環境變量讀取
@@ -63,14 +70,17 @@ const FILE_PATH = join(process.cwd(), "data", "warranties.json");
 
 /**
  * 判斷是否使用 Vercel KV 存儲
- * 支持多種環境變量格式
+ * 支持多種環境變量格式：
+ * 1. KV_REDIS_URL (Vercel 自動提供的格式，URL 包含認證信息)
+ * 2. REDIS_URL (通用格式)
+ * 3. KV_REST_API_URL + KV_REST_API_TOKEN (舊格式，需要兩個變量)
  */
 function shouldUseKV(): boolean {
-  // 支持多種環境變量格式
+  // Vercel 使用 KV_REDIS_URL 時，URL 中已包含認證信息，不需要單獨的 Token
   return !!(
-    (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) ||
     process.env.KV_REDIS_URL ||
-    process.env.REDIS_URL
+    process.env.REDIS_URL ||
+    (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)
   );
 }
 
@@ -80,7 +90,12 @@ function shouldUseKV(): boolean {
 async function readFromKV(): Promise<WarrantyData[]> {
   const kvClient = await getKVClient();
   if (!kvClient) {
-    throw new Error("KV not configured - KV_REST_API_URL and KV_REST_API_TOKEN must be set");
+    throw new Error(
+      "KV not configured. Please set one of:\n" +
+      "- KV_REDIS_URL (Vercel format)\n" +
+      "- REDIS_URL (generic format)\n" +
+      "- KV_REST_API_URL + KV_REST_API_TOKEN (legacy format)"
+    );
   }
 
   try {
@@ -109,11 +124,19 @@ async function readFromKV(): Promise<WarrantyData[]> {
 async function writeToKV(warranties: WarrantyData[]): Promise<void> {
   const kvClient = await getKVClient();
   if (!kvClient) {
-    const hasEnvVars = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
-    if (hasEnvVars) {
-      throw new Error("KV client initialization failed - check KV configuration");
+    const hasKVRedisURL = !!process.env.KV_REDIS_URL;
+    const hasRedisURL = !!process.env.REDIS_URL;
+    const hasKVRestAPI = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+    
+    if (hasKVRedisURL || hasRedisURL || hasKVRestAPI) {
+      throw new Error("KV client initialization failed - check KV configuration and @vercel/kv package");
     } else {
-      throw new Error("KV not configured - KV_REST_API_URL and KV_REST_API_TOKEN must be set in environment variables");
+      throw new Error(
+        "KV not configured. Please set one of:\n" +
+        "- KV_REDIS_URL (Vercel format, recommended)\n" +
+        "- REDIS_URL (generic format)\n" +
+        "- KV_REST_API_URL + KV_REST_API_TOKEN (legacy format)"
+      );
     }
   }
 
