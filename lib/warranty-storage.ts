@@ -61,15 +61,32 @@ async function getKVClient(): Promise<any | null> {
           // 繼續嘗試其他方法
         }
       }
-      // 如果是 https:// 格式（REST API），需要轉換為 @vercel/kv 格式
+      // 如果是 https:// 格式（REST API），嘗試使用 @vercel/kv
       else if (redisUrl.startsWith('https://')) {
-        // Vercel KV REST API URL，需要設置為 KV_REST_API_URL
-        // 但還需要 Token，可能需要從其他地方獲取
-        process.env.KV_REST_API_URL = redisUrl;
-        console.log("Set KV_REST_API_URL from KV_REDIS_URL");
+        // Vercel KV REST API URL，嘗試直接使用
+        // 對於 Upstash REST API，URL 格式通常是: https://xxx.upstash.io
+        // 但 @vercel/kv 需要 KV_REST_API_URL 和 KV_REST_API_TOKEN
+        // 如果 KV_REDIS_URL 是完整的 REST API URL，可能需要從 URL 中提取信息
+        console.log("KV_REDIS_URL is REST API format, attempting to use @vercel/kv");
         
-        // 如果沒有 Token，嘗試使用 @vercel/kv（它可能會從其他環境變量獲取）
-        // 或者提示用戶需要設置 Token
+        // 嘗試設置為 KV_REST_API_URL（如果還沒有設置）
+        if (!process.env.KV_REST_API_URL) {
+          process.env.KV_REST_API_URL = redisUrl;
+          console.log("Set KV_REST_API_URL from KV_REDIS_URL");
+        }
+        
+        // 嘗試使用 @vercel/kv（它會從環境變量讀取）
+        try {
+          const kvModule = await import("@vercel/kv");
+          const kv = kvModule.kv;
+          if (kv) {
+            console.log("KV client initialized with KV_REDIS_URL (https://) via @vercel/kv");
+            return kv;
+          }
+        } catch (kvError: any) {
+          console.error("Failed to initialize @vercel/kv with KV_REDIS_URL:", kvError);
+          // 如果 @vercel/kv 需要 Token，但我們沒有，可能需要使用 HTTP 請求
+        }
       }
     }
     
@@ -129,11 +146,59 @@ function shouldUseKV(): boolean {
 }
 
 /**
+ * 使用 HTTP REST API 直接讀取（備選方案）
+ */
+async function readFromKVRestAPI(): Promise<WarrantyData[]> {
+  const url = process.env.KV_REST_API_URL || process.env.KV_REDIS_URL;
+  const token = process.env.KV_REST_API_TOKEN;
+  
+  if (!url || !token) {
+    throw new Error("KV REST API requires KV_REST_API_URL and KV_REST_API_TOKEN");
+  }
+  
+  try {
+    // Upstash REST API 格式
+    const response = await fetch(`${url}/get/${STORAGE_KEY}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`KV REST API error: ${response.status} ${response.statusText}`);
+    }
+    
+    const result = await response.json();
+    const data = result.result; // Upstash 返回格式: { result: ... }
+    
+    if (!data) {
+      console.log("No data found in KV via REST API, returning empty array");
+      return [];
+    }
+    
+    const warranties = Array.isArray(data) ? data : [];
+    console.log(`Successfully read ${warranties.length} warranties from KV via REST API`);
+    return warranties;
+  } catch (error: any) {
+    console.error("Error reading from KV REST API:", error);
+    throw error;
+  }
+}
+
+/**
  * 從 KV 存儲讀取保固資料
  */
 async function readFromKV(): Promise<WarrantyData[]> {
   const kvClient = await getKVClient();
   if (!kvClient) {
+    // 如果客戶端初始化失敗，但環境變量存在，嘗試使用 REST API
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      console.log("KV client not available, trying REST API fallback");
+      return await readFromKVRestAPI();
+    }
+    
     throw new Error(
       "KV not configured. Please set one of:\n" +
       "- KV_REDIS_URL (Vercel format)\n" +
@@ -155,10 +220,67 @@ async function readFromKV(): Promise<WarrantyData[]> {
     console.error("Error reading from KV:", error);
     console.error("Error details:", {
       message: error?.message,
-      code: error?.code
+      code: error?.code,
+      clientType: typeof kvClient,
+      hasGet: typeof kvClient?.get === 'function'
     });
+    
+    // 如果客戶端讀取失敗，但環境變量存在，嘗試使用 REST API
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      console.log("KV client read failed, trying REST API fallback");
+      try {
+        return await readFromKVRestAPI();
+      } catch (restError) {
+        console.error("REST API fallback also failed:", restError);
+      }
+    }
+    
     // 讀取失敗時返回空數組，而不是拋出錯誤
     return [];
+  }
+}
+
+/**
+ * 使用 HTTP REST API 直接寫入（備選方案）
+ */
+async function writeToKVRestAPI(warranties: WarrantyData[]): Promise<void> {
+  const url = process.env.KV_REST_API_URL || process.env.KV_REDIS_URL;
+  const token = process.env.KV_REST_API_TOKEN;
+  
+  if (!url || !token) {
+    throw new Error("KV REST API requires KV_REST_API_URL and KV_REST_API_TOKEN");
+  }
+  
+  try {
+    // 確保數據是有效的 JSON
+    const serialized = JSON.parse(JSON.stringify(warranties));
+    
+    // Upstash REST API 格式
+    const response = await fetch(`${url}/set/${STORAGE_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(serialized),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`KV REST API error: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log(`Successfully wrote ${warranties.length} warranties to KV via REST API`);
+    
+    // 驗證寫入
+    const verify = await readFromKVRestAPI();
+    if (verify.length !== warranties.length) {
+      throw new Error(`KV write verification failed: expected ${warranties.length}, got ${verify.length}`);
+    }
+  } catch (error: any) {
+    console.error("Error writing to KV REST API:", error);
+    throw error;
   }
 }
 
@@ -167,13 +289,20 @@ async function readFromKV(): Promise<WarrantyData[]> {
  */
 async function writeToKV(warranties: WarrantyData[]): Promise<void> {
   const kvClient = await getKVClient();
+  
+  // 如果客戶端初始化失敗，但環境變量存在，嘗試使用 REST API
   if (!kvClient) {
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      console.log("KV client not available, trying REST API fallback for write");
+      return await writeToKVRestAPI(warranties);
+    }
+    
     const hasKVRedisURL = !!process.env.KV_REDIS_URL;
     const hasRedisURL = !!process.env.REDIS_URL;
     const hasKVRestAPI = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
     
     if (hasKVRedisURL || hasRedisURL || hasKVRestAPI) {
-      throw new Error("KV client initialization failed - check KV configuration");
+      throw new Error("KV client initialization failed - check KV configuration and logs");
     } else {
       throw new Error(
         "KV not configured. Please set one of:\n" +
@@ -188,12 +317,16 @@ async function writeToKV(warranties: WarrantyData[]): Promise<void> {
     // 確保數據是有效的 JSON
     const serialized = JSON.parse(JSON.stringify(warranties));
     
+    console.log(`Attempting to write ${warranties.length} warranties to KV`);
+    console.log(`KV client type: ${typeof kvClient}, has set: ${typeof kvClient.set === 'function'}`);
+    
     // 檢查是 redis 客戶端還是 @vercel/kv 客戶端
     if (typeof kvClient.set === 'function') {
       // @vercel/kv 或 redis 客戶端
       await kvClient.set(STORAGE_KEY, serialized);
+      console.log("KV set operation completed");
     } else {
-      throw new Error("KV client does not support set method");
+      throw new Error(`KV client does not support set method. Client type: ${typeof kvClient}`);
     }
     
     // 驗證寫入是否成功
@@ -201,11 +334,11 @@ async function writeToKV(warranties: WarrantyData[]): Promise<void> {
     if (typeof kvClient.get === 'function') {
       verify = await kvClient.get(STORAGE_KEY);
     } else {
-      verify = await kvClient.get(STORAGE_KEY);
+      throw new Error(`KV client does not support get method. Client type: ${typeof kvClient}`);
     }
     
     if (!verify || !Array.isArray(verify)) {
-      throw new Error("KV write verification failed - data not saved correctly");
+      throw new Error(`KV write verification failed - data not saved correctly. Got: ${typeof verify}`);
     }
     
     console.log(`Successfully wrote ${warranties.length} warranties to KV (verified: ${verify.length})`);
@@ -215,15 +348,29 @@ async function writeToKV(warranties: WarrantyData[]): Promise<void> {
       message: error?.message,
       code: error?.code,
       name: error?.name,
-      stack: error?.stack?.substring(0, 500)
+      stack: error?.stack?.substring(0, 500),
+      clientType: typeof kvClient,
+      hasSet: typeof kvClient?.set === 'function',
+      hasGet: typeof kvClient?.get === 'function'
     });
+    
+    // 如果客戶端寫入失敗，但環境變量存在，嘗試使用 REST API
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      console.log("KV client write failed, trying REST API fallback");
+      try {
+        return await writeToKVRestAPI(warranties);
+      } catch (restError: any) {
+        console.error("REST API fallback also failed:", restError);
+        // 繼續使用原始錯誤
+      }
+    }
     
     // 提供更詳細的錯誤信息
     let errorMsg = `KV write failed: ${error?.message || String(error)}`;
     if (error?.code === 'ECONNREFUSED' || error?.message?.includes('connect')) {
       errorMsg = "無法連接到 KV 服務，請檢查連接配置";
     } else if (error?.code === '401' || error?.message?.includes('Unauthorized') || error?.message?.includes('TOKEN')) {
-      errorMsg = "KV 認證失敗。如果使用 KV_REDIS_URL，請確保 URL 中包含完整的認證信息";
+      errorMsg = "KV 認證失敗。如果使用 KV_REDIS_URL，請確保 URL 中包含完整的認證信息，或設置 KV_REST_API_TOKEN";
     } else if (error?.message?.includes('Missing')) {
       errorMsg = "KV 配置不完整。請在 Vercel Dashboard 中檢查環境變量設置";
     }
