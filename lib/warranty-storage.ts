@@ -208,12 +208,37 @@ async function readFromKV(): Promise<WarrantyData[]> {
   }
 
   try {
-    const data = await kvClient.get(STORAGE_KEY);
+    // 檢查客戶端類型並使用正確的方法
+    let data: any;
+    
+    // redis 包使用小寫方法
+    if (typeof kvClient.get === 'function') {
+      data = await kvClient.get(STORAGE_KEY);
+    } else if (typeof kvClient.GET === 'function') {
+      // 某些 redis 客戶端使用大寫方法
+      data = await kvClient.GET(STORAGE_KEY);
+    } else {
+      throw new Error("KV client does not support get method");
+    }
+    
     if (!data) {
       console.log("No data found in KV, returning empty array");
       return [];
     }
-    const warranties = Array.isArray(data) ? data : [];
+    
+    // redis 返回的數據可能是字符串，需要解析
+    let warranties: WarrantyData[];
+    if (typeof data === 'string') {
+      try {
+        warranties = JSON.parse(data);
+      } catch (parseError) {
+        console.error("Failed to parse data from KV:", parseError);
+        return [];
+      }
+    } else {
+      warranties = Array.isArray(data) ? data : [];
+    }
+    
     console.log(`Successfully read ${warranties.length} warranties from KV`);
     return warranties;
   } catch (error: any) {
@@ -222,7 +247,10 @@ async function readFromKV(): Promise<WarrantyData[]> {
       message: error?.message,
       code: error?.code,
       clientType: typeof kvClient,
-      hasGet: typeof kvClient?.get === 'function'
+      hasGet: typeof kvClient?.get === 'function',
+      hasGET: typeof kvClient?.GET === 'function',
+      isOpen: kvClient?.isOpen,
+      isReady: kvClient?.isReady
     });
     
     // 如果客戶端讀取失敗，但環境變量存在，嘗試使用 REST API
@@ -314,17 +342,23 @@ async function writeToKV(warranties: WarrantyData[]): Promise<void> {
   }
 
   try {
-    // 確保數據是有效的 JSON
-    const serialized = JSON.parse(JSON.stringify(warranties));
+    // 確保數據是有效的 JSON 字符串（redis 需要字符串）
+    const serialized = JSON.stringify(warranties);
     
     console.log(`Attempting to write ${warranties.length} warranties to KV`);
-    console.log(`KV client type: ${typeof kvClient}, has set: ${typeof kvClient.set === 'function'}`);
+    console.log(`KV client type: ${typeof kvClient}, has set: ${typeof kvClient.set === 'function'}, has SET: ${typeof kvClient.SET === 'function'}`);
     
     // 檢查是 redis 客戶端還是 @vercel/kv 客戶端
+    // redis 包需要將數據序列化為字符串
     if (typeof kvClient.set === 'function') {
-      // @vercel/kv 或 redis 客戶端
+      // @vercel/kv 或 redis 客戶端（小寫方法）
+      // 對於 redis 包，需要將對象序列化為字符串
       await kvClient.set(STORAGE_KEY, serialized);
       console.log("KV set operation completed");
+    } else if (typeof kvClient.SET === 'function') {
+      // 某些 redis 客戶端使用大寫方法
+      await kvClient.SET(STORAGE_KEY, serialized);
+      console.log("KV SET operation completed");
     } else {
       throw new Error(`KV client does not support set method. Client type: ${typeof kvClient}`);
     }
@@ -333,15 +367,29 @@ async function writeToKV(warranties: WarrantyData[]): Promise<void> {
     let verify: any;
     if (typeof kvClient.get === 'function') {
       verify = await kvClient.get(STORAGE_KEY);
+    } else if (typeof kvClient.GET === 'function') {
+      verify = await kvClient.GET(STORAGE_KEY);
     } else {
       throw new Error(`KV client does not support get method. Client type: ${typeof kvClient}`);
     }
     
-    if (!verify || !Array.isArray(verify)) {
-      throw new Error(`KV write verification failed - data not saved correctly. Got: ${typeof verify}`);
+    // redis 返回字符串，需要解析
+    let verifyData: WarrantyData[];
+    if (typeof verify === 'string') {
+      try {
+        verifyData = JSON.parse(verify);
+      } catch (parseError) {
+        throw new Error(`KV write verification failed - could not parse saved data`);
+      }
+    } else {
+      verifyData = Array.isArray(verify) ? verify : [];
     }
     
-    console.log(`Successfully wrote ${warranties.length} warranties to KV (verified: ${verify.length})`);
+    if (!verifyData || !Array.isArray(verifyData) || verifyData.length !== warranties.length) {
+      throw new Error(`KV write verification failed - expected ${warranties.length}, got ${verifyData?.length || 0}`);
+    }
+    
+    console.log(`Successfully wrote ${warranties.length} warranties to KV (verified: ${verifyData.length})`);
   } catch (error: any) {
     console.error("Error writing to KV:", error);
     console.error("Error details:", {
